@@ -74,7 +74,7 @@ class Actor<M, A> {
 Handler _remoteHandler;
 ReceivePort _remotePort = ReceivePort();
 
-void _remote(msg) {
+void _remote(msg) async {
   if (_remoteHandler == null) {
     _remoteHandler = msg.content as Handler;
     _remotePort.listen(_remote);
@@ -86,6 +86,9 @@ void _remote(msg) {
       result = _remoteHandler.handle(msg.content);
     } catch (e) {
       result = e;
+    }
+    while (result is Future) {
+      result = await result;
     }
     msg.port.send(_Message(msg.id, null, result));
   }

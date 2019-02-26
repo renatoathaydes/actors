@@ -27,6 +27,13 @@ class CounterActor with Handler<void, int> {
   int handle(void message) => count++;
 }
 
+class SleepingActor with Handler<int, void> {
+  @override
+  handle(int message) async {
+    await Future.delayed(Duration(milliseconds: message));
+  }
+}
+
 void main() {
   group('Typed Actor can run in isolate', () {
     Actor<String, int> actor;
@@ -69,5 +76,28 @@ void main() {
       expect(await actor.send(null), equals(5));
       expect(await actor.send(null), equals(6));
     });
+
+    group('Actor really run in parallel', () {
+      Actor<int, void> actor1;
+      Actor<int, void> actor2;
+
+      setUp(() {
+        actor1 = Actor(SleepingActor());
+        actor2 = Actor(SleepingActor());
+      });
+
+      test('actor uses internal state to respond', () async {
+        final future1 = actor1.send(100);
+        final future2 = actor2.send(100);
+        final startTime = DateTime.now();
+        await future1;
+        await future2;
+        expect(DateTime.now().difference(startTime).inMilliseconds,
+            isIn(range(100, 190)));
+      });
+    });
   });
 }
+
+Set<int> range(int low, int high) =>
+    Set.of(List.generate(high - low, (i) => i + low));
