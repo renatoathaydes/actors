@@ -1,8 +1,6 @@
-/// Support for doing something awesome.
+/// `actors` is a library that enables the use of the Actors Model in Dart.
 ///
-/// More dartdocs go here.
+/// It is a thin wrapper around Dart's [Isolate] that makes them much easier to use..
 library actors;
 
 export 'src/actors_base.dart';
-
-// TODO: Export any libraries intended for clients of this package.
