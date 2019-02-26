@@ -8,9 +8,9 @@ class Two with Handler<int, int> {
 
 main() async {
   final actor = Actor(Two());
-  print(await actor.send(5));
-  print(await actor.send(6));
-  print(await actor.send(7));
-  print(await actor.send(8));
+  print(await actor.send(5)); // 10
+  print(await actor.send(6)); // 12
+  print(await actor.send(7)); // 14
+  print(await actor.send(8)); // 16
   exit(0);
 }
