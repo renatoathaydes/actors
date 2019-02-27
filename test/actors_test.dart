@@ -76,27 +76,27 @@ void main() {
       expect(await actor.send(null), equals(5));
       expect(await actor.send(null), equals(6));
     });
+  });
 
-    group('Actor really run in parallel', () {
-      Actor<int, void> actor1;
-      Actor<int, void> actor2;
+  group('Actors really run in parallel', () {
+    Actor<int, void> actor1;
+    Actor<int, void> actor2;
 
-      setUp(() {
-        actor1 = Actor(SleepingActor());
-        actor2 = Actor(SleepingActor());
-      });
+    setUp(() {
+      actor1 = Actor(SleepingActor());
+      actor2 = Actor(SleepingActor());
+    });
 
-      test(
-          'two actors can wait for 100 ms each, and in total '
-          'we get a wait between 100 and 190', () async {
-        final future1 = actor1.send(100);
-        final future2 = actor2.send(100);
-        final startTime = DateTime.now();
-        await future1;
-        await future2;
-        expect(DateTime.now().difference(startTime).inMilliseconds,
-            inInclusiveRange(100, 190));
-      });
+    test(
+        'two actors can wait for 100 ms each, and in total '
+        'we get a wait between 100 and 190', () async {
+      final future1 = actor1.send(100);
+      final future2 = actor2.send(100);
+      final startTime = DateTime.now();
+      await future1;
+      await future2;
+      expect(DateTime.now().difference(startTime).inMilliseconds,
+          inInclusiveRange(100, 190));
     });
   });
 }
