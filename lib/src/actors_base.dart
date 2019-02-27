@@ -2,10 +2,16 @@ import 'dart:isolate';
 
 class _Message<A> {
   final int id;
-  final SendPort port;
   final A content;
 
-  _Message(this.id, this.port, this.content);
+  _Message(this.id, this.content);
+}
+
+class _BoostrapData {
+  final SendPort sendPort;
+  final Handler handler;
+
+  _BoostrapData(this.sendPort, this.handler);
 }
 
 /// A [Handler] implements the logic an [Actor] should run when receiving
@@ -35,13 +41,13 @@ class Actor<M, A> {
 
     final id = _currentId++;
     _remotePort = _waitForRemotePort(id);
-    isolate =
-        Isolate.spawn(_remote, _Message(id, _localPort.sendPort, handler));
+    isolate = Isolate.spawn(
+        _remote, _Message(id, _BoostrapData(_localPort.sendPort, handler)));
   }
 
   Future<SendPort> _waitForRemotePort(int id) async {
     final firstAnswer = await _answerStream.firstWhere((msg) => msg.id == id);
-    return firstAnswer.port;
+    return firstAnswer.content as SendPort;
   }
 
   Stream<_Message> _answers() async* {
@@ -61,7 +67,7 @@ class Actor<M, A> {
   Future<A> send(M message) async {
     final id = _currentId++;
     final future = _answerStream.firstWhere((msg) => msg.id == id);
-    (await _remotePort).send(_Message(id, _localPort.sendPort, message));
+    (await _remotePort).send(_Message(id, message));
     final result = await future;
     final content = result.content;
     if (content is Exception) {
@@ -72,13 +78,16 @@ class Actor<M, A> {
 }
 
 Handler _remoteHandler;
+SendPort _callerPort;
 ReceivePort _remotePort = ReceivePort();
 
 void _remote(msg) async {
   if (_remoteHandler == null) {
-    _remoteHandler = msg.content as Handler;
+    final data = msg.content as _BoostrapData;
+    _remoteHandler = data.handler;
+    _callerPort = data.sendPort;
     _remotePort.listen(_remote);
-    msg.port.send(_Message(msg.id, _remotePort.sendPort, null));
+    _callerPort.send(_Message(msg.id, _remotePort.sendPort));
   } else {
     assert(msg is _Message);
     var result;
@@ -90,6 +99,6 @@ void _remote(msg) async {
     while (result is Future) {
       result = await result;
     }
-    msg.port.send(_Message(msg.id, null, result));
+    _callerPort.send(_Message(msg.id, result));
   }
 }
