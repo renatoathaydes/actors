@@ -93,11 +93,8 @@ void main() {
         await future1;
         await future2;
         expect(DateTime.now().difference(startTime).inMilliseconds,
-            isIn(range(100, 190)));
+            inInclusiveRange(100, 190));
       });
     });
   });
 }
-
-Set<int> range(int low, int high) =>
-    Set.of(List.generate(high - low, (i) => i + low));
