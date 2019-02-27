@@ -86,7 +86,9 @@ void main() {
         actor2 = Actor(SleepingActor());
       });
 
-      test('actor uses internal state to respond', () async {
+      test(
+          'two actors can wait for 100 ms each, and in total '
+          'we get a wait between 100 and 190', () async {
         final future1 = actor1.send(100);
         final future2 = actor2.send(100);
         final startTime = DateTime.now();
