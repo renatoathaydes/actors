@@ -1,4 +1,5 @@
 import 'dart:io' show exit;
+import 'dart:isolate' show Isolate;
 
 import 'package:actors/actors.dart';
 
@@ -12,5 +13,9 @@ main() async {
   print(await actor.send(6)); // 12
   print(await actor.send(7)); // 14
   print(await actor.send(8)); // 16
+
+  final isolate = await actor.isolate;
+  isolate.kill(priority: Isolate.immediate);
+
   exit(0);
 }

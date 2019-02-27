@@ -20,6 +20,8 @@ class _BoostrapData {
 /// [Handler]s run in an [Isolate] and hence must not rely on any external
 /// state - only the state it maintains internally.
 mixin Handler<M, A> {
+  /// Handle a message in the [Actor]'s [Isolate], optionally sending
+  /// an answer back to the caller.
   A handle(M message);
 }
 
