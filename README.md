@@ -40,3 +40,27 @@ It multiplexes messages to a number of `Actor`s which use the same type of `Hand
 final group = ActorGroup(Two(), size: 4);
 print(await group.send(5)); // 10
 ```
+
+## Messenger
+
+The `Messenger` mixin is implemented by `Actor`, `ActorGroup`, and also `LocalMessenger`, which runs its `Handler`
+in the local `Isolate`.
+
+```dart
+Messenger<int, int> messenger;
+
+// a Messenger can be local
+messenger = LocalMessenger(Two());
+print(await messenger.send(2)); // 4
+
+// or it can be an Actor
+messenger = Actor(Two());
+print(await messenger.send(3)); // 6
+
+// or an ActorGroup
+messenger = ActorGroup(Two(), size: 2);
+print(await messenger.send(4)); // 8
+print(await messenger.send(5)); // 10
+```
+
+This makes it possible to write code that works the same whether the message is handled locally or in another `Isolate`.

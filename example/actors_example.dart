@@ -10,6 +10,7 @@ class Two with Handler<int, int> {
 main() async {
   await actorExample();
   await actorGroupExample();
+  await localMessengerExample();
 
   exit(0);
 }
@@ -36,4 +37,21 @@ Future actorGroupExample() async {
   for (var actor in group.actors) {
     (await actor.isolate).kill(priority: Isolate.immediate);
   }
+}
+
+Future localMessengerExample() async {
+  Messenger<int, int> messenger;
+
+  // a Messenger can be local
+  messenger = LocalMessenger(Two());
+  print(await messenger.send(2)); // 4
+
+  // or it can be an Actor
+  messenger = Actor(Two());
+  print(await messenger.send(3)); // 6
+
+  // or an ActorGroup
+  messenger = ActorGroup(Two(), size: 2);
+  print(await messenger.send(4)); // 8
+  print(await messenger.send(5)); // 10
 }
