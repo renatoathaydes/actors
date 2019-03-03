@@ -4,3 +4,4 @@
 library actors;
 
 export 'src/actors_base.dart';
+export 'src/actor_group.dart';

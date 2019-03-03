@@ -14,23 +14,36 @@ class _BoostrapData {
   _BoostrapData(this.sendPort, this.handler);
 }
 
-/// A [Handler] implements the logic an [Actor] should run when receiving
-/// a message.
-///
-/// [Handler]s run in an [Isolate] and hence must not rely on any external
-/// state - only the state it maintains internally.
+/// A [Handler] implements the logic to handle messages.
 mixin Handler<M, A> {
-  /// Handle a message in the [Actor]'s [Isolate], optionally sending
-  /// an answer back to the caller.
+  /// Handle a message, optionally sending an answer back to the caller.
   A handle(M message);
 }
 
-/// An [Actor] is an object which can send messages to a [Handler]
+/// A [Messenger] can send a message and receive an answer asynchronously.
+mixin Messenger<M, A> {
+  /// Send a message and get a [Future] to receive the answer at some later
+  /// point in time, asynchronously.
+  Future<A> send(M message);
+}
+
+/// An [Actor] is an entity that can send messages to a [Handler]
 /// running inside a Dart [Isolate].
 ///
-/// It can be seen as the local view of the isolated [Handler], communicating
-/// with the other [Isolate] in a transparent manner.
-class Actor<M, A> {
+/// It can be seen as the local view of the isolated [Handler] that handles
+/// messages sent via the [Actor], communicating
+/// with the associated [Isolate] in a transparent manner.
+///
+/// Because [Actor]s are mapped 1-1 to [Isolate]s, they are not cheap to create
+/// and the same limitations of [Isolate]s also apply to [Actor]s:
+///
+/// * messages sent to [Actor]s must be copied into the [Isolate] the [Actor]
+///   is running on.
+/// * the number of processing intensive [Actor]s should be around that
+///   of the number of CPUs available.
+/// * it may make sense to have a larger amount of [Actor]s if they are mostly
+///   IO-bound.
+class Actor<M, A> with Messenger<M, A> {
   Future<Isolate> isolate;
   ReceivePort _localPort;
   Future<SendPort> _remotePort;
@@ -66,6 +79,7 @@ class Actor<M, A> {
   /// If an error occurs while the [Handler] handles the message,
   /// the returned [Future] completes with an error,
   /// otherwise it completes with the answer given by the [Handler].
+  @override
   Future<A> send(M message) async {
     final id = _currentId++;
     final future = _answerStream.firstWhere((msg) => msg.id == id);
