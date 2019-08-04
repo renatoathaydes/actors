@@ -6,17 +6,14 @@ class IntParserActor with Handler<String, int> {
   int handle(String message) => int.parse(message);
 }
 
-class DynamicActor with Handler {
-  @override
-  handle(message) {
-    switch (message.runtimeType) {
-      case String:
-        return 'string';
-      case int:
-        return 'integer';
-      default:
-        return -1;
-    }
+dynamic handleDynamic(dynamic message) {
+  switch (message.runtimeType as Type) {
+    case String:
+      return 'string';
+    case int:
+      return 'integer';
+    default:
+      return -1;
   }
 }
 
@@ -27,11 +24,8 @@ class CounterActor with Handler<void, int> {
   int handle(void message) => count++;
 }
 
-class SleepingActor with Handler<int, void> {
-  @override
-  handle(int message) async {
-    await Future.delayed(Duration(milliseconds: message));
-  }
+Future<void> sleepingActor(int message) async {
+  await Future<dynamic>.delayed(Duration(milliseconds: message));
 }
 
 void main() {
@@ -54,7 +48,7 @@ void main() {
     Actor actor;
 
     setUp(() {
-      actor = Actor(DynamicActor());
+      actor = Actor<dynamic, dynamic>.of(handleDynamic);
     });
 
     test('can handle messages async', () async {
@@ -83,8 +77,8 @@ void main() {
     Actor<int, void> actor2;
 
     setUp(() {
-      actor1 = Actor(SleepingActor());
-      actor2 = Actor(SleepingActor());
+      actor1 = Actor.of(sleepingActor);
+      actor2 = Actor.of(sleepingActor);
     });
 
     test(
@@ -97,6 +91,6 @@ void main() {
       await future2;
       expect(DateTime.now().difference(startTime).inMilliseconds,
           inInclusiveRange(100, 190));
-    });
+    }, retry: 1);
   });
 }

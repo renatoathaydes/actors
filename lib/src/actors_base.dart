@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:isolate';
 
 class _Message<A> {
@@ -7,24 +8,42 @@ class _Message<A> {
   _Message(this.id, this.content);
 }
 
-class _BoostrapData {
+class _BoostrapData<M, A> {
   final SendPort sendPort;
-  final Handler handler;
+  final Handler<M, A> handler;
 
   _BoostrapData(this.sendPort, this.handler);
 }
 
+typedef HandlerFunction<M, A> = FutureOr<A> Function(M message);
+
 /// A [Handler] implements the logic to handle messages.
 mixin Handler<M, A> {
   /// Handle a message, optionally sending an answer back to the caller.
-  A handle(M message);
+  FutureOr<A> handle(M message);
 }
+
+class _HandlerOfFunction<M, A> with Handler<M, A> {
+  final HandlerFunction<M, A> _function;
+
+  _HandlerOfFunction(this._function);
+
+  @override
+  FutureOr<A> handle(M message) => _function(message);
+}
+
+/// Wrap a [HandlerFunction] into a [Handler] object.
+Handler<M, A> asHandler<M, A>(HandlerFunction<M, A> handlerFunction) =>
+    _HandlerOfFunction(handlerFunction);
 
 /// A [Messenger] can send a message and receive an answer asynchronously.
 mixin Messenger<M, A> {
   /// Send a message and get a [Future] to receive the answer at some later
   /// point in time, asynchronously.
-  Future<A> send(M message);
+  FutureOr<A> send(M message);
+
+  /// Close this [Messenger].
+  FutureOr<dynamic> close();
 }
 
 /// An [Actor] is an entity that can send messages to a [Handler]
@@ -50,6 +69,9 @@ class Actor<M, A> with Messenger<M, A> {
   Stream<_Message> _answerStream;
   int _currentId = -2 ^ 30;
 
+  /// Creates an [Actor] that handles messages with the given [Handler].
+  ///
+  /// Use the [of] constructor to wrap a function directly.
   Actor(Handler<M, A> handler) {
     _localPort = ReceivePort();
     _answerStream = _answers().asBroadcastStream();
@@ -59,6 +81,9 @@ class Actor<M, A> with Messenger<M, A> {
     isolate = Isolate.spawn(
         _remote, _Message(id, _BoostrapData(_localPort.sendPort, handler)));
   }
+
+  /// Creates an [Actor] based on a handler function.
+  Actor.of(HandlerFunction<M, A> handler) : this(asHandler(handler));
 
   Future<SendPort> _waitForRemotePort(int id) async {
     final firstAnswer = await _answerStream.firstWhere((msg) => msg.id == id);
@@ -85,28 +110,37 @@ class Actor<M, A> with Messenger<M, A> {
     final future = _answerStream.firstWhere((msg) => msg.id == id);
     (await _remotePort).send(_Message(id, message));
     final result = await future;
-    final content = result.content;
+    final dynamic content = result.content;
     if (content is Exception) {
       throw content;
     }
-    return content as A;
+    return content as FutureOr<A>;
+  }
+
+  FutureOr<dynamic> close() async {
+    (await isolate).kill(priority: Isolate.immediate);
   }
 }
+
+/////////////////////////////////////////////////////////
+// Below this line, we define the remote Actor behaviour,
+// i.e. the code that runs in the Actor's Isolate.
+/////////////////////////////////////////////////////////
 
 Handler _remoteHandler;
 SendPort _callerPort;
 ReceivePort _remotePort = ReceivePort();
 
-void _remote(msg) async {
+void _remote(dynamic msg) async {
   if (_remoteHandler == null) {
     final data = msg.content as _BoostrapData;
     _remoteHandler = data.handler;
     _callerPort = data.sendPort;
     _remotePort.listen(_remote);
-    _callerPort.send(_Message(msg.id, _remotePort.sendPort));
+    _callerPort.send(_Message(msg.id as int, _remotePort.sendPort));
   } else {
     assert(msg is _Message);
-    var result;
+    dynamic result;
     try {
       result = _remoteHandler.handle(msg.content);
     } catch (e) {
@@ -115,6 +149,6 @@ void _remote(msg) async {
     while (result is Future) {
       result = await result;
     }
-    _callerPort.send(_Message(msg.id, result));
+    _callerPort.send(_Message<dynamic>(msg.id as int, result));
   }
 }
