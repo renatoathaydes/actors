@@ -7,7 +7,13 @@ import 'actors_base.dart';
 class LocalMessenger<M, A> with Messenger<M, A> {
   final Handler<M, A> _handler;
 
+  /// Creates a [LocalMessenger] that handles messages with the given [Handler].
+  ///
+  /// Use the [of] constructor to wrap a function directly.
   LocalMessenger(this._handler);
+
+  /// Creates a [LocalMessenger] based on a handler function.
+  LocalMessenger.of(HandlerFunction<M, A> handler) : this(asHandler(handler));
 
   @override
   Future<A> send(M message) {

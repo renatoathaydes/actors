@@ -17,9 +17,16 @@ class ActorGroup<M, A> with Messenger<M, A> {
   final List<Actor<M, A>> actors;
   int _index = 0;
 
+  /// Creates an [ActorGroup] that handles messages with the given [Handler].
+  ///
+  /// Use the [of] constructor to wrap a function directly.
   ActorGroup(Handler<M, A> handler, {int size = 6})
       : size = size,
         actors = _buildActors(size, handler);
+
+  /// Creates an [ActorGroup] based on a handler function.
+  ActorGroup.of(HandlerFunction<M, A> handlerFunction, {int size = 6})
+      : this(asHandler(handlerFunction), size: size);
 
   static List<Actor<M, A>> _buildActors<M, A>(int size, Handler<M, A> handler) {
     final actors = List<Actor<M, A>>(size);

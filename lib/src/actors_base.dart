@@ -7,18 +7,33 @@ class _Message<A> {
   _Message(this.id, this.content);
 }
 
-class _BoostrapData {
+class _BoostrapData<M, A> {
   final SendPort sendPort;
-  final Handler handler;
+  final Handler<M, A> handler;
 
   _BoostrapData(this.sendPort, this.handler);
 }
+
+typedef HandlerFunction<M, A> = A Function(M message);
 
 /// A [Handler] implements the logic to handle messages.
 mixin Handler<M, A> {
   /// Handle a message, optionally sending an answer back to the caller.
   A handle(M message);
 }
+
+class _HandlerOfFunction<M, A> with Handler<M, A> {
+  final HandlerFunction<M, A> _function;
+
+  _HandlerOfFunction(this._function);
+
+  @override
+  A handle(M message) => _function(message);
+}
+
+/// Wrap a [HandlerFunction] into a [Handler] object.
+Handler<M, A> asHandler<M, A>(HandlerFunction<M, A> handlerFunction) =>
+    _HandlerOfFunction(handlerFunction);
 
 /// A [Messenger] can send a message and receive an answer asynchronously.
 mixin Messenger<M, A> {
@@ -50,6 +65,9 @@ class Actor<M, A> with Messenger<M, A> {
   Stream<_Message> _answerStream;
   int _currentId = -2 ^ 30;
 
+  /// Creates an [Actor] that handles messages with the given [Handler].
+  ///
+  /// Use the [of] constructor to wrap a function directly.
   Actor(Handler<M, A> handler) {
     _localPort = ReceivePort();
     _answerStream = _answers().asBroadcastStream();
@@ -59,6 +77,9 @@ class Actor<M, A> with Messenger<M, A> {
     isolate = Isolate.spawn(
         _remote, _Message(id, _BoostrapData(_localPort.sendPort, handler)));
   }
+
+  /// Creates an [Actor] based on a handler function.
+  Actor.of(HandlerFunction<M, A> handler) : this(asHandler(handler));
 
   Future<SendPort> _waitForRemotePort(int id) async {
     final firstAnswer = await _answerStream.firstWhere((msg) => msg.id == id);
@@ -92,6 +113,11 @@ class Actor<M, A> with Messenger<M, A> {
     return content as A;
   }
 }
+
+/////////////////////////////////////////////////////////
+// Below this line, we define the remote Actor behaviour,
+// i.e. the code that runs in the Actor's Isolate.
+/////////////////////////////////////////////////////////
 
 Handler _remoteHandler;
 SendPort _callerPort;
