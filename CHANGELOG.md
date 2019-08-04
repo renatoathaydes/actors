@@ -1,3 +1,12 @@
+## 0.4.0
+
+- Allow all Messenger subtypes to be created from a function.
+- Added support for GroupStrategy, so ActorGroup can have different ways to send messages to actors.
+- Created RoundRobinGroupStrategy.
+- Created AllHandleWithNAcks.
+- All Messenger sub-types are now closeable.
+- Changed return type of Messenger.send from Future to FutureOr. 
+
 ## 0.3.0
 
 - Added ActorGroup.
