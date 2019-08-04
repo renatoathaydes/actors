@@ -91,6 +91,6 @@ void main() {
       await future2;
       expect(DateTime.now().difference(startTime).inMilliseconds,
           inInclusiveRange(100, 190));
-    });
+    }, retry: 1);
   });
 }

@@ -10,19 +10,6 @@ class Two with Handler<int, int> {
   int handle(int message) => message * 2;
 }
 
-class SleepsAfterAck with Handler<int, int> {
-  int _count = 0;
-  Future<void> _maybeSleep = Future.value(null);
-
-  @override
-  FutureOr<int> handle(int message) async {
-    _count++;
-    await _maybeSleep;
-    _maybeSleep = Future<void>.delayed(Duration(milliseconds: message));
-    return _count;
-  }
-}
-
 void main() {
   group('ActorGroup can handle messages like a single Actor', () {
     ActorGroup<int, int> actorGroup;
@@ -45,8 +32,7 @@ void main() {
     ActorGroup<int, int> actorGroup;
 
     setUp(() {
-      actorGroup =
-          ActorGroup(Counter(), size: 3, strategy: const RoundRobin());
+      actorGroup = ActorGroup(Counter(), size: 3, strategy: const RoundRobin());
     });
 
     tearDown(() async {
