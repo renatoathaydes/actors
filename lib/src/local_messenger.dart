@@ -19,4 +19,9 @@ class LocalMessenger<M, A> with Messenger<M, A> {
   Future<A> send(M message) {
     return Future(() => _handler.handle(message));
   }
+
+  @override
+  void close() {
+    // no op
+  }
 }

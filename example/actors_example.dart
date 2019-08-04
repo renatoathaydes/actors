@@ -1,4 +1,6 @@
-import 'dart:io' show exit;
+import 'dart:async';
+import 'dart:core';
+import 'dart:io' ;
 import 'dart:isolate' show Isolate;
 
 import 'package:actors/actors.dart';
@@ -9,11 +11,26 @@ class Counter with Handler<int, int> {
   int handle(int n) => _count += n;
 }
 
-main() async {
-  await actorExample();
-  await actorGroupExample();
-  await localMessengerExample();
+Iterator<String> _expectedLines = [
+  '1', '2', '8', '16', '10', '12', '14', '16', '2', '3', '8', '10' //
+].iterator;
 
+// This function overrides Dart's "print" so we can verify the printed output
+void printAndCheck(Zone self, ZoneDelegate parent, Zone zone, String line) {
+  _expectedLines.moveNext();
+  if (line == _expectedLines.current) {
+    stdout.writeln(line);
+  } else {
+    throw Exception("Unexpected line: $line, not ${_expectedLines.current}");
+  }
+}
+
+void main() async {
+  await runZoned(() async {
+    await actorExample();
+    await actorGroupExample();
+    await localMessengerExample();
+  }, zoneSpecification: ZoneSpecification(print: printAndCheck));
   exit(0);
 }
 
@@ -28,7 +45,7 @@ Future actorExample() async {
   isolate.kill(priority: Isolate.immediate);
 }
 
-int times2(n) => n * 2;
+int times2(int n) => n * 2;
 
 Future actorGroupExample() async {
   // create a group of 4 actors...
@@ -41,9 +58,7 @@ Future actorGroupExample() async {
   print(await group.send(7)); // 14
   print(await group.send(8)); // 16
 
-  for (var actor in group.actors) {
-    (await actor.isolate).kill(priority: Isolate.immediate);
-  }
+  await group.close();
 }
 
 Future localMessengerExample() async {
@@ -61,4 +76,6 @@ Future localMessengerExample() async {
   messenger = ActorGroup.of(times2, size: 2);
   print(await messenger.send(4)); // 8
   print(await messenger.send(5)); // 10
+
+  await messenger.close();
 }

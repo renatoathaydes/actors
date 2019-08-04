@@ -6,8 +6,8 @@ class IntParserActor with Handler<String, int> {
   int handle(String message) => int.parse(message);
 }
 
-handleDynamic(message) {
-  switch (message.runtimeType) {
+dynamic handleDynamic(dynamic message) {
+  switch (message.runtimeType as Type) {
     case String:
       return 'string';
     case int:
@@ -25,7 +25,7 @@ class CounterActor with Handler<void, int> {
 }
 
 Future<void> sleepingActor(int message) async {
-  await Future.delayed(Duration(milliseconds: message));
+  await Future<dynamic>.delayed(Duration(milliseconds: message));
 }
 
 void main() {
@@ -48,7 +48,7 @@ void main() {
     Actor actor;
 
     setUp(() {
-      actor = Actor.of(handleDynamic);
+      actor = Actor<dynamic, dynamic>.of(handleDynamic);
     });
 
     test('can handle messages async', () async {

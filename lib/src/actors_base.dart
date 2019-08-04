@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:isolate';
 
 class _Message<A> {
@@ -14,12 +15,12 @@ class _BoostrapData<M, A> {
   _BoostrapData(this.sendPort, this.handler);
 }
 
-typedef HandlerFunction<M, A> = A Function(M message);
+typedef HandlerFunction<M, A> = FutureOr<A> Function(M message);
 
 /// A [Handler] implements the logic to handle messages.
 mixin Handler<M, A> {
   /// Handle a message, optionally sending an answer back to the caller.
-  A handle(M message);
+  FutureOr<A> handle(M message);
 }
 
 class _HandlerOfFunction<M, A> with Handler<M, A> {
@@ -28,7 +29,7 @@ class _HandlerOfFunction<M, A> with Handler<M, A> {
   _HandlerOfFunction(this._function);
 
   @override
-  A handle(M message) => _function(message);
+  FutureOr<A> handle(M message) => _function(message);
 }
 
 /// Wrap a [HandlerFunction] into a [Handler] object.
@@ -39,7 +40,10 @@ Handler<M, A> asHandler<M, A>(HandlerFunction<M, A> handlerFunction) =>
 mixin Messenger<M, A> {
   /// Send a message and get a [Future] to receive the answer at some later
   /// point in time, asynchronously.
-  Future<A> send(M message);
+  FutureOr<A> send(M message);
+
+  /// Close this [Messenger].
+  FutureOr<dynamic> close();
 }
 
 /// An [Actor] is an entity that can send messages to a [Handler]
@@ -106,11 +110,15 @@ class Actor<M, A> with Messenger<M, A> {
     final future = _answerStream.firstWhere((msg) => msg.id == id);
     (await _remotePort).send(_Message(id, message));
     final result = await future;
-    final content = result.content;
+    final dynamic content = result.content;
     if (content is Exception) {
       throw content;
     }
-    return content as A;
+    return content as FutureOr<A>;
+  }
+
+  FutureOr<dynamic> close() async {
+    (await isolate).kill(priority: Isolate.immediate);
   }
 }
 
@@ -123,16 +131,16 @@ Handler _remoteHandler;
 SendPort _callerPort;
 ReceivePort _remotePort = ReceivePort();
 
-void _remote(msg) async {
+void _remote(dynamic msg) async {
   if (_remoteHandler == null) {
     final data = msg.content as _BoostrapData;
     _remoteHandler = data.handler;
     _callerPort = data.sendPort;
     _remotePort.listen(_remote);
-    _callerPort.send(_Message(msg.id, _remotePort.sendPort));
+    _callerPort.send(_Message(msg.id as int, _remotePort.sendPort));
   } else {
     assert(msg is _Message);
-    var result;
+    dynamic result;
     try {
       result = _remoteHandler.handle(msg.content);
     } catch (e) {
@@ -141,6 +149,6 @@ void _remote(msg) async {
     while (result is Future) {
       result = await result;
     }
-    _callerPort.send(_Message(msg.id, result));
+    _callerPort.send(_Message<dynamic>(msg.id as int, result));
   }
 }
