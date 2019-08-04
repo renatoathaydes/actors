@@ -41,12 +41,12 @@ void main() {
       expect(await actorGroup.send(25), equals(50));
     });
   });
-  group('ActorGroup RoundRobbin Strategy', () {
+  group('ActorGroup RoundRobin Strategy', () {
     ActorGroup<int, int> actorGroup;
 
     setUp(() {
       actorGroup =
-          ActorGroup(Counter(), size: 3, strategy: const RoundRobbin());
+          ActorGroup(Counter(), size: 3, strategy: const RoundRobin());
     });
 
     tearDown(() async {

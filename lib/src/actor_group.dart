@@ -64,8 +64,8 @@ class AllHandleWithNAcks<M, A> extends GroupStrategy<M, A> {
   }
 }
 
-class RoundRobbin<M, A> extends GroupStrategy<M, A> {
-  const RoundRobbin() : super._create();
+class RoundRobin<M, A> extends GroupStrategy<M, A> {
+  const RoundRobin() : super._create();
 
   @override
   HandlerFunction<M, A> _toHandler(List<Messenger<M, A>> messengers) {
@@ -114,7 +114,7 @@ class ActorGroup<M, A> with Messenger<M, A> {
       {int size = 6, GroupStrategy<M, A> strategy})
       : size = size,
         _group = _Group(
-            _buildActors(size, handler), strategy ?? RoundRobbin<M, A>()) {
+            _buildActors(size, handler), strategy ?? RoundRobin<M, A>()) {
     if (size < 1) {
       throw ArgumentError.value(size, 'size', 'must be a positive number');
     }
