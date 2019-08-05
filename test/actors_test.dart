@@ -19,6 +19,16 @@ handleDynamic(message) {
   }
 }
 
+Stream<int> handleTyped(String message) async* {
+  if (message == 'good message') {
+    for (final item in [10, 20]) {
+      yield item;
+    }
+  } else {
+    throw Exception('Bad message');
+  }
+}
+
 Stream dynamicStream(value) async* {
   for (final i in [1, '#2', 3.0]) {
     yield i;
@@ -103,18 +113,29 @@ void main() {
   });
 
   group('Actors can return Stream', () {
-    Actor<dynamic, Stream> actor;
-    tearDown(() {
-      actor?.close();
+    StreamActor actor;
+    StreamActor<String, int> typedActor;
+    tearDown(() async {
+      await actor?.close();
+      await typedActor?.close();
     });
     test('of dynamic type', () async {
-      actor = Actor<dynamic, Stream>.of(dynamicStream);
+      actor = StreamActor.of(dynamicStream);
       final answers = [];
       Stream stream = await actor.send(#start);
       await for (final message in stream) {
         answers.add(message);
       }
       expect(answers, equals([1, '#2', 3.0]));
+    }, timeout: Timeout(Duration(seconds: 5)));
+    test('with typed values', () async {
+      typedActor = StreamActor<String, int>.of(handleTyped);
+      final answers = <int>[];
+      Stream<int> stream = await typedActor.send('good message');
+      await for (final message in stream) {
+        answers.add(message);
+      }
+      expect(answers, equals([10, 20]));
     }, timeout: Timeout(Duration(seconds: 5)));
   });
 }

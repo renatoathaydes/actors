@@ -68,13 +68,15 @@ class Actor<M, A> with Messenger<M, A> {
   Future<SendPort> _remotePort;
   Stream<_Message> _answerStream;
   int _currentId = -2 ^ 30;
-  final bool _returnsStream;
 
   /// Creates an [Actor] that handles messages with the given [Handler].
   ///
   /// Use the [of] constructor to wrap a function directly.
-  Actor(Handler<M, A> handler)
-      : _returnsStream = A.toString() == 'Stream<dynamic>' {
+  Actor(Handler<M, A> handler) {
+    if (A.toString().startsWith('Stream<')) {
+      throw StateError(
+          "Actor cannot return a Stream. Use StreamActor instead.");
+    }
     _localPort = ReceivePort();
     _answerStream = _answers().asBroadcastStream();
 
@@ -109,22 +111,72 @@ class Actor<M, A> with Messenger<M, A> {
   @override
   FutureOr<A> send(M message) async {
     final id = _currentId++;
-    if (_returnsStream) {
-      (await _remotePort).send(_Message(id, message));
-      return _answerStream
-          .where((msg) => msg.id == id)
-          .map<Object>((msg) => msg.content)
-          .takeWhile((Object item) => item != #actors_stream_done) as A;
-    } else {
-      final future = _answerStream.firstWhere((msg) => msg.id == id);
-      (await _remotePort).send(_Message(id, message));
-      final result = await future;
-      final Object content = result.content;
-      if (content is Exception) {
-        throw content;
-      }
-      return content as FutureOr<A>;
+    final future = _answerStream.firstWhere((answer) => answer.id == id);
+    (await _remotePort).send(_Message(id, message));
+    final result = await future;
+    final Object content = result.content;
+    if (content is Exception) {
+      throw content;
     }
+    return content as FutureOr<A>;
+  }
+
+  FutureOr close() async {
+    (await isolate).kill(priority: Isolate.immediate);
+  }
+}
+
+class StreamActor<M, A> with Messenger<M, Stream<A>> {
+  Future<Isolate> isolate;
+  ReceivePort _localPort;
+  Future<SendPort> _remotePort;
+  Stream<_Message> _answerStream;
+  int _currentId = -2 ^ 30;
+
+  /// Creates an [Actor] that handles messages with the given [Handler].
+  ///
+  /// Use the [of] constructor to wrap a function directly.
+  StreamActor(Handler<M, Stream<A>> handler) {
+    _localPort = ReceivePort();
+    _answerStream = _answers().asBroadcastStream();
+
+    final id = _currentId++;
+    _remotePort = _waitForRemotePort(id);
+    isolate = Isolate.spawn(
+        _remote, _Message(id, _BoostrapData(_localPort.sendPort, handler)));
+  }
+
+  /// Creates an [Actor] based on a handler function.
+  StreamActor.of(HandlerFunction<M, Stream<A>> handler)
+      : this(asHandler(handler));
+
+  Future<SendPort> _waitForRemotePort(int id) async {
+    final firstAnswer = await _answerStream.firstWhere((msg) => msg.id == id);
+    return firstAnswer.content as SendPort;
+  }
+
+  Stream<_Message> _answers() async* {
+    await for (var answer in _localPort) {
+      yield answer as _Message;
+    }
+  }
+
+  /// Send a message to the [Handler] this [Actor] is based on.
+  ///
+  /// The message is handled in another [Isolate] and the handler's
+  /// response is sent back asynchronously.
+  ///
+  /// If an error occurs while the [Handler] handles the message,
+  /// the returned [Future] completes with an error,
+  /// otherwise it completes with the answer given by the [Handler].
+  @override
+  FutureOr<Stream<A>> send(M message) async {
+    final id = _currentId++;
+    (await _remotePort).send(_Message(id, message));
+    return _answerStream
+        .where((answer) => answer.id == id)
+        .takeWhile((item) => item.content != #actors_stream_done)
+        .map((answer) => answer.content as A);
   }
 
   FutureOr close() async {
