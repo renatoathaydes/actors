@@ -43,7 +43,7 @@ mixin Messenger<M, A> {
   FutureOr<A> send(M message);
 
   /// Close this [Messenger].
-  FutureOr<dynamic> close();
+  FutureOr close();
 }
 
 /// An [Actor] is an entity that can send messages to a [Handler]
@@ -68,11 +68,13 @@ class Actor<M, A> with Messenger<M, A> {
   Future<SendPort> _remotePort;
   Stream<_Message> _answerStream;
   int _currentId = -2 ^ 30;
+  final bool _returnsStream;
 
   /// Creates an [Actor] that handles messages with the given [Handler].
   ///
   /// Use the [of] constructor to wrap a function directly.
-  Actor(Handler<M, A> handler) {
+  Actor(Handler<M, A> handler)
+      : _returnsStream = A.toString() == 'Stream<dynamic>' {
     _localPort = ReceivePort();
     _answerStream = _answers().asBroadcastStream();
 
@@ -105,19 +107,27 @@ class Actor<M, A> with Messenger<M, A> {
   /// the returned [Future] completes with an error,
   /// otherwise it completes with the answer given by the [Handler].
   @override
-  Future<A> send(M message) async {
+  FutureOr<A> send(M message) async {
     final id = _currentId++;
-    final future = _answerStream.firstWhere((msg) => msg.id == id);
-    (await _remotePort).send(_Message(id, message));
-    final result = await future;
-    final dynamic content = result.content;
-    if (content is Exception) {
-      throw content;
+    if (_returnsStream) {
+      (await _remotePort).send(_Message(id, message));
+      return _answerStream
+          .where((msg) => msg.id == id)
+          .map<Object>((msg) => msg.content)
+          .takeWhile((Object item) => item != #actors_stream_done) as A;
+    } else {
+      final future = _answerStream.firstWhere((msg) => msg.id == id);
+      (await _remotePort).send(_Message(id, message));
+      final result = await future;
+      final Object content = result.content;
+      if (content is Exception) {
+        throw content;
+      }
+      return content as FutureOr<A>;
     }
-    return content as FutureOr<A>;
   }
 
-  FutureOr<dynamic> close() async {
+  FutureOr close() async {
     (await isolate).kill(priority: Isolate.immediate);
   }
 }
@@ -131,24 +141,35 @@ Handler _remoteHandler;
 SendPort _callerPort;
 ReceivePort _remotePort = ReceivePort();
 
-void _remote(dynamic msg) async {
-  if (_remoteHandler == null) {
-    final data = msg.content as _BoostrapData;
-    _remoteHandler = data.handler;
-    _callerPort = data.sendPort;
-    _remotePort.listen(_remote);
-    _callerPort.send(_Message(msg.id as int, _remotePort.sendPort));
+void _remote(msg) async {
+  if (msg is _Message) {
+    if (_remoteHandler == null) {
+      final data = msg.content as _BoostrapData;
+      _remoteHandler = data.handler;
+      _callerPort = data.sendPort;
+      _remotePort.listen(_remote);
+      _callerPort.send(_Message(msg.id, _remotePort.sendPort));
+    } else {
+      Object result;
+      try {
+        result = _remoteHandler.handle(msg.content);
+      } catch (e) {
+        result = e;
+      }
+      while (result is Future) {
+        result = await result;
+      }
+      if (result is Stream) {
+        await for (var item in result) {
+          _callerPort.send(_Message<Object>(msg.id, item));
+        }
+        // actor doesn't know we're done if we don't tell it explicitly
+        _callerPort.send(_Message<Object>(msg.id, #actors_stream_done));
+      } else {
+        _callerPort.send(_Message<Object>(msg.id, result));
+      }
+    }
   } else {
-    assert(msg is _Message);
-    dynamic result;
-    try {
-      result = _remoteHandler.handle(msg.content);
-    } catch (e) {
-      result = e;
-    }
-    while (result is Future) {
-      result = await result;
-    }
-    _callerPort.send(_Message<dynamic>(msg.id as int, result));
+    throw StateError('Unexpected message: $msg');
   }
 }

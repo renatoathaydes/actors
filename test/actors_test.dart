@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:actors/actors.dart';
 import 'package:test/test.dart';
 
@@ -6,7 +8,7 @@ class IntParserActor with Handler<String, int> {
   int handle(String message) => int.parse(message);
 }
 
-dynamic handleDynamic(dynamic message) {
+handleDynamic(message) {
   switch (message.runtimeType as Type) {
     case String:
       return 'string';
@@ -14,6 +16,12 @@ dynamic handleDynamic(dynamic message) {
       return 'integer';
     default:
       return -1;
+  }
+}
+
+Stream dynamicStream(value) async* {
+  for (final i in [1, '#2', 3.0]) {
+    yield i;
   }
 }
 
@@ -25,7 +33,7 @@ class CounterActor with Handler<void, int> {
 }
 
 Future<void> sleepingActor(int message) async {
-  await Future<dynamic>.delayed(Duration(milliseconds: message));
+  await Future.delayed(Duration(milliseconds: message));
 }
 
 void main() {
@@ -48,7 +56,7 @@ void main() {
     Actor actor;
 
     setUp(() {
-      actor = Actor<dynamic, dynamic>.of(handleDynamic);
+      actor = Actor.of(handleDynamic);
     });
 
     test('can handle messages async', () async {
@@ -92,5 +100,21 @@ void main() {
       expect(DateTime.now().difference(startTime).inMilliseconds,
           inInclusiveRange(100, 190));
     }, retry: 1);
+  });
+
+  group('Actors can return Stream', () {
+    Actor<dynamic, Stream> actor;
+    tearDown(() {
+      actor?.close();
+    });
+    test('of dynamic type', () async {
+      actor = Actor<dynamic, Stream>.of(dynamicStream);
+      final answers = [];
+      Stream stream = await actor.send(#start);
+      await for (final message in stream) {
+        answers.add(message);
+      }
+      expect(answers, equals([1, '#2', 3.0]));
+    }, timeout: Timeout(Duration(seconds: 5)));
   });
 }
