@@ -112,7 +112,7 @@ void main() {
     }, retry: 1);
   });
 
-  group('Actors can return Stream', () {
+  group('StreamActors can return Stream', () {
     StreamActor actor;
     StreamActor<String, int> typedActor;
     tearDown(() async {
@@ -131,11 +131,19 @@ void main() {
     test('with typed values', () async {
       typedActor = StreamActor<String, int>.of(handleTyped);
       final answers = <int>[];
-      Stream<int> stream = await typedActor.send('good message');
+      Stream<int> stream = typedActor.send('good message');
       await for (final message in stream) {
         answers.add(message);
       }
       expect(answers, equals([10, 20]));
+    }, timeout: Timeout(Duration(seconds: 5)));
+
+    test('with typed values (error is propagated)', () {
+      typedActor = StreamActor<String, int>.of(handleTyped);
+      expect(
+          typedActor.send('bad message').first,
+          throwsA(isException.having((error) => error.toString(),
+              'expected error message', equals('Exception: Bad message'))));
     }, timeout: Timeout(Duration(seconds: 5)));
   });
 }
