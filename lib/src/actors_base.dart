@@ -217,7 +217,6 @@ void _remote(msg) async {
           // actor doesn't know we're done if we don't tell it explicitly
           result = #actors_stream_done;
         } catch (e) {
-          print("Captured error while looping through stream: $e");
           result = e;
           isError = true;
         }
