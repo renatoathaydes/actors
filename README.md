@@ -61,8 +61,19 @@ main() async {
 
 ## ActorGroup
 
-For cases where messages are CPU intensive to handle and there may be many of them, the `ActorGroup` class can be used.
-It multiplexes messages to a number of `Actor`s which use the same type of `Handler` to handle messages.
+`ActorGroup` allows several `Actor` instances to be grouped together, all based on the same `Handler` implementation,
+but executed according to one of the available strategies:
+
+* `RoundRobin` - send message to a single `Actor`, alternating which member of the group receives the message.
+* `MHandlesWithNAcks` - send message to `m` `Actor`s, wait for at least `n` acks.
+
+`RoundRobing` is appropriate for cases where messages are CPU intensive to handle and there may be many of them.
+
+`MHandlesWithNAcks` is a way to achieve high reliability by duplicating effort, as not all `Actor`s in the group may
+be healthy at all times. Having a few "backups" doing the same work on each message may be a good idea in case one or
+more of the expected receivers are likely to fail, as the system will still continue to work without issues as long as
+`n` actors remain healthy... Also, by sending the same message to several actors, the message might be received in
+ different locations, making it much harder for it to be lost.
 
 ```dart
 // create a group of 4 actors

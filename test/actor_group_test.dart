@@ -57,13 +57,13 @@ void main() {
     });
   });
 
-  group('ActorGroup AllHandleWithNAcks Strategy', () {
+  group('ActorGroup MHandlesWithNAcks Strategy', () {
     ActorGroup<int, int> actorGroup;
 
     setUp(() {
       actorGroup = ActorGroup(Two(),
           size: 3,
-          strategy: AllHandleWithNAcks(
+          strategy: MHandlesWithNAcks(
               n: 2,
               combineAnswers: (answers) {
                 if (answers.length != 2) {
@@ -92,24 +92,24 @@ void main() {
         ActorGroup<int, int>(Two(), size: -1);
       }, throwsArgumentError);
     });
-    test('AllHandleWithNAcks must now allow n > actorsSize', () {
+    test('MHandlesWithNAcks must not allow n > actorsSize', () {
       // same n as actorsSize is ok
       expect(
           Future.value(ActorGroup<int, int>(Two(),
               size: 3,
               strategy:
-                  AllHandleWithNAcks(n: 3, combineAnswers: (a) => a.first))),
+                  MHandlesWithNAcks(n: 3, combineAnswers: (a) => a.first))),
           completes);
       expect(() {
         ActorGroup<int, int>(Two(),
             size: 3,
-            strategy: AllHandleWithNAcks(n: 4, combineAnswers: (a) => a.first));
-      }, throwsStateError);
+            strategy: MHandlesWithNAcks(n: 4, combineAnswers: (a) => a.first));
+      }, throwsException);
       expect(() {
         ActorGroup<int, int>(Two(),
             size: 1,
-            strategy: AllHandleWithNAcks(n: 4, combineAnswers: (a) => a.first));
-      }, throwsStateError);
+            strategy: MHandlesWithNAcks(n: 4, combineAnswers: (a) => a.first));
+      }, throwsException);
     });
   });
 }

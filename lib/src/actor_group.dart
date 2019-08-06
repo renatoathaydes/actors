@@ -39,21 +39,47 @@ class _AckCountDown<A> {
   Future<A> get future => _completer.future;
 }
 
-class AllHandleWithNAcks<M, A> extends GroupStrategy<M, A> {
-  final int n;
-  final A Function(List<A>) combineAnswers;
+/// [GroupStrategy] that sends each message an [ActorGroup] receives to 'm'
+/// [Actor]s, and requires 'n' successful answers, where `m >= n >= group size`.
+class MHandlesWithNAcks<M, A> extends GroupStrategy<M, A> {
+  final int m, n;
+  A Function(List<A>) combineAnswers;
 
-  const AllHandleWithNAcks({this.n, this.combineAnswers}) : super._create();
+  /// Creates a [MHandlesWithNAcks] with:
+  ///
+  /// * [m] - number of [Actor]s that should receive each message (defaults to all).
+  /// * [n] - number of successful answers that should be awaited for.
+  /// * [combineAnswers] - how to combine the [n] answers received to provide
+  /// a  single response.
+  ///
+  /// The default [combineAnswers] function returns the first answer if all
+  /// answers are equal, and throws an [Exception] if received answers differ.
+  MHandlesWithNAcks({this.m, this.n = 2, this.combineAnswers})
+      : super._create() {
+    if (m != null && m < n) {
+      throw ArgumentError('m < n ($m < $n)');
+    }
+    combineAnswers ??= _firstAnswerIfAllEqual;
+  }
+
+  A _firstAnswerIfAllEqual(List<A> answers) {
+    final firstAnswer = answers[0];
+    final ok = answers.skip(1).every((answer) => answer == firstAnswer);
+    if (ok) return firstAnswer;
+    throw Exception("Inconsistent answers received from different "
+        "Actors in the group");
+  }
 
   @override
   HandlerFunction<M, A> _toHandler(List<Messenger<M, A>> messengers) {
     if (messengers.length < n) {
-      throw StateError('Cannot create AllHandleWithNAcks with n < actorsCount:'
+      throw Exception('Cannot create MHandlesWithNAcks with n < actorsCount:'
           ' ($n < ${messengers.length})');
     }
     return (M message) {
-      final completer = _AckCountDown<A>(n, combineAnswers, messengers.length);
-      final futures = messengers.map((m) => m.send(message));
+      final completer =
+          _AckCountDown<A>(n, combineAnswers, m ?? messengers.length);
+      final futures = _pickMessengers(messengers).map((m) => m.send(message));
       for (final future in futures) {
         if (future is Future<A>) {
           future.then(completer.complete, onError: completer.completeError);
@@ -62,8 +88,16 @@ class AllHandleWithNAcks<M, A> extends GroupStrategy<M, A> {
       return completer.future;
     };
   }
+
+  Iterable<Messenger<M, A>> _pickMessengers(List<Messenger<M, A>> messengers) {
+    final all = messengers.toList(growable: false);
+    all.shuffle();
+    return all.take(m);
+  }
 }
 
+/// [GroupStrategy] that sends a message to a single member of the group,
+/// iterating over all members as messages are sent.
 class RoundRobin<M, A> extends GroupStrategy<M, A> {
   const RoundRobin() : super._create();
 
@@ -98,16 +132,18 @@ class _Group<M, A> {
 /// and because of that the [Handler]s cannot share any state.
 ///
 /// When a message is sent to an [ActorGroup] it may be handled by
-/// any of the [Actor]s in the group.
-/// Each [Actor] runs, as usual, in its own [Isolate].
+/// any of the [Actor]s in the group, or by many depending on the chosen
+/// [GroupStrategy].
 ///
-/// The strategy to select which [Actor] should handle a given message is
-/// currently simple Round-Robin, but this may be changed in the future.
+/// Each [Actor] runs, as usual, in its own [Isolate].
 class ActorGroup<M, A> with Messenger<M, A> {
   final int size;
   final _Group<M, A> _group;
 
-  /// Creates an [ActorGroup] that handles messages with the given [Handler].
+  /// Creates an [ActorGroup] with the given [size] that handles messages
+  /// using the given [Handler].
+  ///
+  /// A [GroupStrategy] may be provided, defaulting to [RoundRobin].
   ///
   /// Use the [of] constructor to wrap a function directly.
   ActorGroup(Handler<M, A> handler,
@@ -120,7 +156,9 @@ class ActorGroup<M, A> with Messenger<M, A> {
     }
   }
 
-  /// Creates an [ActorGroup] based on a handler function.
+  /// Creates an [ActorGroup] with the given [size], based on a handler function.
+  ///
+  /// A [GroupStrategy] may be provided, defaulting to [RoundRobin].
   ActorGroup.of(HandlerFunction<M, A> handlerFunction,
       {int size = 6, GroupStrategy<M, A> strategy})
       : this(asHandler(handlerFunction), size: size, strategy: strategy);
