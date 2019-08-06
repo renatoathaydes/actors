@@ -91,24 +91,29 @@ void main() {
   });
 
   group('Actors really run in parallel', () {
-    Actor<int, void> actor1;
+    List<Actor<int, void>> actors;
     Actor<int, void> actor2;
 
     setUp(() {
-      actor1 = Actor.of(sleepingActor);
-      actor2 = Actor.of(sleepingActor);
+      actors = Iterable.generate(5, (_) => Actor.of(sleepingActor)).toList();
     });
 
     test(
-        'two actors can wait for 100 ms each, and in total '
-        'we get a wait between 100 and 190', () async {
-      final future1 = actor1.send(100);
-      final future2 = actor2.send(100);
+        'many actors wait for 100 ms each, and in total '
+        'we get a wait time that is less than if they all ran sync', () async {
+      final sleepTime = 100;
+      final futures = actors.map((actor) => actor.send(sleepTime)).toList();
       final startTime = DateTime.now();
-      await future1;
-      await future2;
+      for (final future in futures) {
+        await future;
+      }
+      final totalTimeIfRunInSeries = 100 * actors.length;
+
+      // we know at least one Actor ran in parallel if the time it took to
+      // wait for all futures is a little less than the theoretical minimal
+      // if they had run in series
       expect(DateTime.now().difference(startTime).inMilliseconds,
-          inInclusiveRange(100, 190));
+          inInclusiveRange(sleepTime, totalTimeIfRunInSeries - 10));
     }, retry: 1);
   });
 
