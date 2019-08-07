@@ -2,11 +2,18 @@ import 'dart:async';
 
 import 'actors_base.dart';
 
+/// A strategy for forwarding messages and selecting or computing an answer
+/// from a group of [Messenger] instances.
+///
+/// Typically used with the [ActorGroup] class.
 abstract class GroupStrategy<M, A> {
-  // forbid external implementations of GroupStrategy for now.
-  const GroupStrategy._create();
+  const GroupStrategy();
 
-  HandlerFunction<M, A> _toHandler(List<Messenger<M, A>> messengers);
+  /// Get a [HandlerFunction] that uses this strategy to forward messages
+  /// to the provided [messengers], returning a single answer that may
+  /// be either provided by one of the given messengers, or computed
+  /// by combining in some way the answers given by the messengers.
+  HandlerFunction<M, A> toHandler(List<Messenger<M, A>> messengers);
 }
 
 class _AckCountDown<A> {
@@ -54,8 +61,7 @@ class MHandlesWithNAcks<M, A> extends GroupStrategy<M, A> {
   ///
   /// The default [combineAnswers] function returns the first answer if all
   /// answers are equal, and throws an [Exception] if received answers differ.
-  MHandlesWithNAcks({this.m, this.n = 2, this.combineAnswers})
-      : super._create() {
+  MHandlesWithNAcks({this.m, this.n = 2, this.combineAnswers}) : super() {
     if (m != null && m < n) {
       throw ArgumentError('m < n ($m < $n)');
     }
@@ -71,7 +77,7 @@ class MHandlesWithNAcks<M, A> extends GroupStrategy<M, A> {
   }
 
   @override
-  HandlerFunction<M, A> _toHandler(List<Messenger<M, A>> messengers) {
+  HandlerFunction<M, A> toHandler(List<Messenger<M, A>> messengers) {
     if (messengers.length < n) {
       throw Exception('Cannot create MHandlesWithNAcks with n < actorsCount:'
           ' ($n < ${messengers.length})');
@@ -99,10 +105,10 @@ class MHandlesWithNAcks<M, A> extends GroupStrategy<M, A> {
 /// [GroupStrategy] that sends a message to a single member of the group,
 /// iterating over all members as messages are sent.
 class RoundRobin<M, A> extends GroupStrategy<M, A> {
-  const RoundRobin() : super._create();
+  const RoundRobin() : super();
 
   @override
-  HandlerFunction<M, A> _toHandler(List<Messenger<M, A>> messengers) {
+  HandlerFunction<M, A> toHandler(List<Messenger<M, A>> messengers) {
     int index = 0;
     int size = messengers.length;
     return (M message) => messengers[index++ % size].send(message);
@@ -114,7 +120,7 @@ class _Group<M, A> {
   final HandlerFunction<M, A> _handle;
 
   _Group(this._actors, GroupStrategy<M, A> strategy)
-      : _handle = strategy._toHandler(_actors);
+      : _handle = strategy.toHandler(_actors);
 
   FutureOr<A> handle(M message) => _handle(message);
 
