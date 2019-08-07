@@ -67,6 +67,7 @@ mixin Messenger<M, A> {
 /// Notice that an [Actor] cannot return a [Stream] of any kind, only a single
 /// [FutureOr] of type [A]. To return a [Stream], use [StreamActor] instead.
 class Actor<M, A> with Messenger<M, A> {
+  @deprecated
   Future<Isolate> isolate;
   final ReceivePort _localPort;
   Future<SendPort> _sendPort;
