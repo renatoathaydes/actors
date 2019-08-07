@@ -23,10 +23,10 @@ class _CompletableCounter {
 typedef _MakesHandler = int Function(int) Function(int);
 
 void main() {
-  group('MHandlesWithNAcks', () {
+  group('MultiHandler', () {
     test('should respect the documented policy to forward and compute answers',
         () async {
-      final defaultStrategy = MHandlesWithNAcks<int, int>();
+      final defaultStrategy = MultiHandler<int, int>();
       int counter1 = 0;
       int counter2 = 0;
       int counter3 = 0;
@@ -81,9 +81,9 @@ void main() {
 
     test('should follow custom policy to forward and compute answers',
         () async {
-      final customStrategy = MHandlesWithNAcks<int, int>(
-          m: 3,
-          n: 3,
+      final customStrategy = MultiHandler<int, int>(
+          minAnswers: 3,
+          handlersPerMessage: 3,
           combineAnswers: (answers) => answers.fold(0, (a, b) => a + b));
 
       int counter1 = 0;
@@ -145,9 +145,9 @@ void main() {
     }, timeout: Timeout(Duration(seconds: 5)));
 
     test('should succeed even if some messengers fail when m > n', () async {
-      final customStrategy = MHandlesWithNAcks<int, int>(
-          m: 4,
-          n: 3,
+      final customStrategy = MultiHandler<int, int>(
+          minAnswers: 3,
+          handlersPerMessage: 4,
           combineAnswers: (answers) => answers.fold(0, (a, b) => a + b));
 
       int counter1 = 0;
@@ -199,7 +199,7 @@ void main() {
     }, timeout: Timeout(Duration(seconds: 5)));
 
     test('should fail if x messengers fail where x > n', () async {
-      final customStrategy = MHandlesWithNAcks<int, int>(n: 3);
+      final customStrategy = MultiHandler<int, int>(minAnswers: 3);
 
       _MakesHandler handlerIncrementing = (int counterIndex) {
         return (n) {
@@ -217,5 +217,12 @@ void main() {
 
       expect(() => handle(1), throwsA(equals("don't wanna do it")));
     }, timeout: Timeout(Duration(seconds: 5)));
+
+    test('does not allow minAnswers > handlersPerMessage', () {
+      expect(
+          () => MultiHandler<int, int>(handlersPerMessage: 3, minAnswers: 4),
+          throwsA(isArgumentError.having((e) => e.message, 'error message',
+              equals('minAnswers > handlersPerMessage (4 > 3)'))));
+    });
   });
 }

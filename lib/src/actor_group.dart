@@ -45,28 +45,35 @@ class _MultiCompleter<A> {
   Future<List<A>> get future => _completer.future;
 }
 
-/// [GroupStrategy] that sends each message an [ActorGroup] receives to 'm'
-/// [Actor]s, and requires 'n' successful answers, where `m >= n >= group size`.
+/// [GroupStrategy] that sends each message received to `handlersPerMessage`
+/// (m) [Messenger]s, and requires 'minAnswers' (n) successful answers to
+/// provide a final, combined answer, where `group size >= m >= n`.
 ///
-/// The `m` handlers are currently chosen randomly from the available pool each
-/// time a message is sent, but this behaviour may change in the future.
-class MHandlesWithNAcks<M, A> extends GroupStrategy<M, A> {
-  final int m, n;
+/// The handlers for each message are currently chosen randomly from the
+/// available group's messengers each time a message is sent,
+/// but this behaviour may change in the future.
+class MultiHandler<M, A> extends GroupStrategy<M, A> {
+  final int minAnswers, handlersPerMessage;
   final A Function(List<A>) combineAnswers;
 
-  /// Creates a [MHandlesWithNAcks] with:
+  /// Creates a [MultiHandler] with:
   ///
-  /// * [m] - number of [Actor]s that should receive each message (defaults to all).
-  /// * [n] - number of successful answers that should be awaited for.
-  /// * [combineAnswers] - how to combine the [n] answers received to provide
-  /// a  single response.
+  /// * [minAnswers] - number of successful answers that should be awaited for.
+  /// * [handlersPerMessage] - number of [Messenger]s that should receive each message (defaults to all).
+  /// * [combineAnswers] - how to combine the received answers to provide a single answer.
+  ///
+  /// The value of [minAnswers] must be less than or equal to that of [handlersPerMessage].
   ///
   /// The default [combineAnswers] function returns the first answer if all
   /// answers are equal, and throws an [Exception] if received answers differ.
-  MHandlesWithNAcks({this.m, this.n = 2, A Function(List<A>) combineAnswers})
+  MultiHandler(
+      {this.minAnswers = 2,
+      this.handlersPerMessage,
+      A Function(List<A>) combineAnswers})
       : combineAnswers = combineAnswers ?? _firstAnswerIfAllEqual {
-    if (m != null && m < n) {
-      throw ArgumentError('m < n ($m < $n)');
+    if (handlersPerMessage != null && minAnswers > handlersPerMessage) {
+      throw ArgumentError(
+          'minAnswers > handlersPerMessage ($minAnswers > $handlersPerMessage)');
     }
   }
 
@@ -80,13 +87,21 @@ class MHandlesWithNAcks<M, A> extends GroupStrategy<M, A> {
 
   @override
   HandlerFunction<M, A> toHandler(List<Messenger<M, A>> messengers) {
-    if (messengers.length < n) {
-      throw Exception('Cannot create MHandlesWithNAcks with n < actorsCount:'
-          ' ($n < ${messengers.length})');
+    if (messengers.length < minAnswers) {
+      throw ArgumentError('Cannot create HandlerFunction with '
+          'messengers.length < minAnswers:'
+          ' (${messengers.length} < $minAnswers)');
+    }
+    final handlersToCall = handlersPerMessage ?? messengers.length;
+    if (messengers.length < handlersToCall) {
+      throw ArgumentError('Cannot create HandlerFunction with '
+          'messengers.length < handlersPerMessage:'
+          ' (${messengers.length} < $handlersPerMessage)');
     }
     return (M message) {
-      final completer = _MultiCompleter<A>(n, m ?? messengers.length);
-      final futures = _pickMessengers(messengers).map((m) => m.send(message));
+      final completer = _MultiCompleter<A>(minAnswers, handlersToCall);
+      final futures = _pickMessengers(messengers, handlersToCall)
+          .map((m) => m.send(message));
       for (final future in futures) {
         if (future is Future<A>) {
           future.then(completer.complete, onError: completer.completeError);
@@ -96,10 +111,11 @@ class MHandlesWithNAcks<M, A> extends GroupStrategy<M, A> {
     };
   }
 
-  Iterable<Messenger<M, A>> _pickMessengers(List<Messenger<M, A>> messengers) {
+  Iterable<Messenger<M, A>> _pickMessengers(
+      List<Messenger<M, A>> messengers, int handlersToCall) {
     final all = messengers.toList(growable: false);
     all.shuffle();
-    return all.take(m);
+    return all.take(handlersToCall);
   }
 }
 
@@ -156,12 +172,8 @@ class ActorGroup<M, A> with Messenger<M, A> {
   ActorGroup(Handler<M, A> handler,
       {int size = 6, GroupStrategy<M, A> strategy})
       : size = size,
-        _group = _Group(
-            _buildActors(size, handler), strategy ?? RoundRobin<M, A>()) {
-    if (size < 1) {
-      throw ArgumentError.value(size, 'size', 'must be a positive number');
-    }
-  }
+        _group =
+            _Group(_buildActors(size, handler), strategy ?? RoundRobin<M, A>());
 
   /// Creates an [ActorGroup] with the given [size], based on a handler function.
   ///
@@ -172,6 +184,9 @@ class ActorGroup<M, A> with Messenger<M, A> {
 
   static List<Messenger<M, A>> _buildActors<M, A>(
       int size, Handler<M, A> handler) {
+    if (size < 1) {
+      throw ArgumentError.value(size, 'size', 'must be a positive number');
+    }
     final actors = List<Messenger<M, A>>(size);
     for (int i = 0; i < size; i++) {
       actors[i] = Actor(handler);
