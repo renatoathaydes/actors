@@ -16,41 +16,43 @@ abstract class GroupStrategy<M, A> {
   HandlerFunction<M, A> toHandler(List<Messenger<M, A>> messengers);
 }
 
-class _AckCountDown<A> {
+class _MultiCompleter<A> {
   final List<A> _answers = [];
-  final int _minAcks;
-  final int _actorCount;
-  final Completer<A> _completer = Completer();
-  final A Function(List<A>) combineAnswers;
+  final int _requiredCompletions;
+  final int _maxPossibleCompletions;
+  final Completer<List<A>> _completer = Completer();
   int _errorCount = 0;
 
-  _AckCountDown(this._minAcks, this.combineAnswers, this._actorCount);
+  _MultiCompleter(this._requiredCompletions, this._maxPossibleCompletions);
 
   void complete(A value) {
     if (_completer.isCompleted) return;
     _answers.add(value);
-    if (_answers.length >= _minAcks) {
-      _completer.complete(combineAnswers(_answers));
+    if (_answers.length >= _requiredCompletions) {
+      _completer.complete(_answers);
     }
   }
 
   void completeError(Object error, [StackTrace stackTrace]) {
     if (_completer.isCompleted) return;
     _errorCount++;
-    final actorsLeft = _actorCount - _answers.length - _errorCount;
+    final actorsLeft = _maxPossibleCompletions - _answers.length - _errorCount;
     if (actorsLeft <= 0) {
       _completer.completeError(error, stackTrace);
     }
   }
 
-  Future<A> get future => _completer.future;
+  Future<List<A>> get future => _completer.future;
 }
 
 /// [GroupStrategy] that sends each message an [ActorGroup] receives to 'm'
 /// [Actor]s, and requires 'n' successful answers, where `m >= n >= group size`.
+///
+/// The `m` handlers are currently chosen randomly from the available pool each
+/// time a message is sent, but this behaviour may change in the future.
 class MHandlesWithNAcks<M, A> extends GroupStrategy<M, A> {
   final int m, n;
-  A Function(List<A>) combineAnswers;
+  final A Function(List<A>) combineAnswers;
 
   /// Creates a [MHandlesWithNAcks] with:
   ///
@@ -61,14 +63,14 @@ class MHandlesWithNAcks<M, A> extends GroupStrategy<M, A> {
   ///
   /// The default [combineAnswers] function returns the first answer if all
   /// answers are equal, and throws an [Exception] if received answers differ.
-  MHandlesWithNAcks({this.m, this.n = 2, this.combineAnswers}) : super() {
+  MHandlesWithNAcks({this.m, this.n = 2, A Function(List<A>) combineAnswers})
+      : combineAnswers = combineAnswers ?? _firstAnswerIfAllEqual {
     if (m != null && m < n) {
       throw ArgumentError('m < n ($m < $n)');
     }
-    combineAnswers ??= _firstAnswerIfAllEqual;
   }
 
-  A _firstAnswerIfAllEqual(List<A> answers) {
+  static T _firstAnswerIfAllEqual<T>(List<T> answers) {
     final firstAnswer = answers[0];
     final ok = answers.skip(1).every((answer) => answer == firstAnswer);
     if (ok) return firstAnswer;
@@ -83,15 +85,14 @@ class MHandlesWithNAcks<M, A> extends GroupStrategy<M, A> {
           ' ($n < ${messengers.length})');
     }
     return (M message) {
-      final completer =
-          _AckCountDown<A>(n, combineAnswers, m ?? messengers.length);
+      final completer = _MultiCompleter<A>(n, m ?? messengers.length);
       final futures = _pickMessengers(messengers).map((m) => m.send(message));
       for (final future in futures) {
         if (future is Future<A>) {
           future.then(completer.complete, onError: completer.completeError);
         }
       }
-      return completer.future;
+      return completer.future.then(combineAnswers);
     };
   }
 
