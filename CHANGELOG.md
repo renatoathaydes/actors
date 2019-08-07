@@ -1,3 +1,11 @@
+## 0.5.0
+
+- Created StreamActor to support Actors that return Streams.
+- Removed AllHandleWithNAcks GroupStrategy.
+- Created MultiHandler GroupStrategy, better implementation and more flexible than AllHandleWithNAcks.
+- Allow external implementations of GroupStrategy to be used.
+- Deprecated 'isolate' field in Actor. Will remove in the next version to allow web implementation.
+
 ## 0.4.0
 
 - Allow all Messenger subtypes to be created from a function.
