@@ -65,7 +65,7 @@ main() async {
 but executed according to one of the available strategies:
 
 * `RoundRobin` - send message to a single `Actor`, alternating which member of the group receives the message.
-* `MHandlesWithNAcks` - send message to `m` `Actor`s, wait for at least `n` acks.
+* `MultiHandler` - send message to `m` `Actor`s, wait for at least `n` successful answers.
 
 `RoundRobing` is appropriate for cases where messages are CPU intensive to handle and there may be many of them.
 
