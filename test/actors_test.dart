@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:actors/actors.dart';
 import 'package:test/test.dart';
 
@@ -6,7 +8,7 @@ class IntParserActor with Handler<String, int> {
   int handle(String message) => int.parse(message);
 }
 
-dynamic handleDynamic(dynamic message) {
+handleDynamic(message) {
   switch (message.runtimeType as Type) {
     case String:
       return 'string';
@@ -14,6 +16,22 @@ dynamic handleDynamic(dynamic message) {
       return 'integer';
     default:
       return -1;
+  }
+}
+
+Stream<int> handleTyped(String message) async* {
+  if (message == 'good message') {
+    for (final item in [10, 20]) {
+      yield item;
+    }
+  } else {
+    throw Exception('Bad message');
+  }
+}
+
+Stream dynamicStream(value) async* {
+  for (final i in [1, '#2', 3.0]) {
+    yield i;
   }
 }
 
@@ -25,7 +43,7 @@ class CounterActor with Handler<void, int> {
 }
 
 Future<void> sleepingActor(int message) async {
-  await Future<dynamic>.delayed(Duration(milliseconds: message));
+  await Future.delayed(Duration(milliseconds: message));
 }
 
 void main() {
@@ -48,7 +66,7 @@ void main() {
     Actor actor;
 
     setUp(() {
-      actor = Actor<dynamic, dynamic>.of(handleDynamic);
+      actor = Actor.of(handleDynamic);
     });
 
     test('can handle messages async', () async {
@@ -73,24 +91,64 @@ void main() {
   });
 
   group('Actors really run in parallel', () {
-    Actor<int, void> actor1;
+    List<Actor<int, void>> actors;
     Actor<int, void> actor2;
 
     setUp(() {
-      actor1 = Actor.of(sleepingActor);
-      actor2 = Actor.of(sleepingActor);
+      actors = Iterable.generate(5, (_) => Actor.of(sleepingActor)).toList();
     });
 
     test(
-        'two actors can wait for 100 ms each, and in total '
-        'we get a wait between 100 and 190', () async {
-      final future1 = actor1.send(100);
-      final future2 = actor2.send(100);
+        'many actors wait for 100 ms each, and in total '
+        'we get a wait time that is less than if they all ran sync', () async {
+      final sleepTime = 100;
+      final futures = actors.map((actor) => actor.send(sleepTime)).toList();
       final startTime = DateTime.now();
-      await future1;
-      await future2;
+      for (final future in futures) {
+        await future;
+      }
+      final totalTimeIfRunInSeries = 100 * actors.length;
+
+      // we know at least one Actor ran in parallel if the time it took to
+      // wait for all futures is a little less than the theoretical minimal
+      // if they had run in series
       expect(DateTime.now().difference(startTime).inMilliseconds,
-          inInclusiveRange(100, 190));
+          inInclusiveRange(sleepTime, totalTimeIfRunInSeries - 10));
     }, retry: 1);
+  });
+
+  group('StreamActors can return Stream', () {
+    StreamActor actor;
+    StreamActor<String, int> typedActor;
+    tearDown(() async {
+      await actor?.close();
+      await typedActor?.close();
+    });
+    test('of dynamic type', () async {
+      actor = StreamActor.of(dynamicStream);
+      final answers = [];
+      Stream stream = await actor.send(#start);
+      await for (final message in stream) {
+        answers.add(message);
+      }
+      expect(answers, equals([1, '#2', 3.0]));
+    }, timeout: Timeout(Duration(seconds: 5)));
+    test('with typed values', () async {
+      typedActor = StreamActor<String, int>.of(handleTyped);
+      final answers = <int>[];
+      Stream<int> stream = typedActor.send('good message');
+      await for (final message in stream) {
+        answers.add(message);
+      }
+      expect(answers, equals([10, 20]));
+    }, timeout: Timeout(Duration(seconds: 5)));
+
+    test('with typed values (error is propagated)', () {
+      typedActor = StreamActor<String, int>.of(handleTyped);
+      expect(
+          typedActor.send('bad message').first,
+          throwsA(isException.having((error) => error.toString(),
+              'expected error message', equals('Exception: Bad message'))));
+    }, timeout: Timeout(Duration(seconds: 5)));
   });
 }

@@ -57,14 +57,14 @@ void main() {
     });
   });
 
-  group('ActorGroup AllHandleWithNAcks Strategy', () {
+  group('ActorGroup MHandlesWithNAcks Strategy', () {
     ActorGroup<int, int> actorGroup;
 
     setUp(() {
       actorGroup = ActorGroup(Two(),
           size: 3,
-          strategy: AllHandleWithNAcks(
-              n: 2,
+          strategy: MultiHandler(
+              minAnswers: 2,
               combineAnswers: (answers) {
                 if (answers.length != 2) {
                   throw 'Incorrect number of answers: ${answers}';
@@ -92,24 +92,36 @@ void main() {
         ActorGroup<int, int>(Two(), size: -1);
       }, throwsArgumentError);
     });
-    test('AllHandleWithNAcks must now allow n > actorsSize', () {
-      // same n as actorsSize is ok
+    test(
+        'MultiHandler must not allow minAnswers or '
+        'handlersPerMessage > actorsSize', () {
+      // same 'minAnswers' as actorsSize is ok
       expect(
           Future.value(ActorGroup<int, int>(Two(),
               size: 3,
               strategy:
-                  AllHandleWithNAcks(n: 3, combineAnswers: (a) => a.first))),
+                  MultiHandler(minAnswers: 3, combineAnswers: (a) => a.first))),
           completes);
-      expect(() {
-        ActorGroup<int, int>(Two(),
-            size: 3,
-            strategy: AllHandleWithNAcks(n: 4, combineAnswers: (a) => a.first));
-      }, throwsStateError);
-      expect(() {
-        ActorGroup<int, int>(Two(),
-            size: 1,
-            strategy: AllHandleWithNAcks(n: 4, combineAnswers: (a) => a.first));
-      }, throwsStateError);
+      expect(
+          () => ActorGroup<int, int>(Two(),
+              size: 3,
+              strategy: MultiHandler(
+                  handlersPerMessage: 4, combineAnswers: (a) => a.first)),
+          throwsA(isArgumentError.having(
+              (e) => e.message,
+              'error message',
+              equals('Cannot create HandlerFunction with '
+                  'messengers.length < handlersPerMessage: (3 < 4)'))));
+      expect(
+          () => ActorGroup<int, int>(Two(),
+              size: 1,
+              strategy:
+                  MultiHandler(minAnswers: 4, combineAnswers: (a) => a.first)),
+          throwsA(isArgumentError.having(
+              (e) => e.message,
+              'error message',
+              equals('Cannot create HandlerFunction with '
+                  'messengers.length < minAnswers: (1 < 4)'))));
     });
   });
 }
