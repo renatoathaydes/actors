@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:actors/actors.dart';
 import 'package:test/test.dart';
 
+import 'assertions.dart';
+
 class IntParserActor with Handler<String, int> {
   @override
   int handle(String message) => int.parse(message);
@@ -20,12 +22,17 @@ handleDynamic(message) {
 }
 
 Stream<int> handleTyped(String message) async* {
-  if (message == 'good message') {
-    for (final item in [10, 20]) {
-      yield item;
-    }
-  } else {
-    throw Exception('Bad message');
+  switch (message) {
+    case 'good message':
+      for (final item in [10, 20]) {
+        yield item;
+      }
+      break;
+    case 'throw':
+      throw Exception('Bad message');
+    default:
+      String s;
+      s.trim(); // throw with stacktrace!!
   }
 }
 
@@ -146,9 +153,25 @@ void main() {
     test('with typed values (error is propagated)', () {
       typedActor = StreamActor<String, int>.of(handleTyped);
       expect(
-          typedActor.send('bad message').first,
+          typedActor.send('throw').first,
           throwsA(isException.having((error) => error.toString(),
               'expected error message', equals('Exception: Bad message'))));
-    }, timeout: Timeout(Duration(seconds: 5)));
+    }, timeout: Timeout(Duration(minutes: 5)));
+
+    test('with typed values (stacktrace error is propagated)', () {
+      typedActor = StreamActor<String, int>.of(handleTyped);
+      expect(
+          typedActor.send('throw with stacktrace').first,
+          throwsA(isRemoteErrorException.having(
+              (e) => e.errorAsString,
+              'expected error message',
+              linesIncluding([
+                "NoSuchMethodError: The method 'trim' was called on null.",
+                // needs to contain the function that threw in the remote Isolate
+                RegExp(".*handleTyped \\(file:.*"),
+                // and the package and function that handles remote messages
+                RegExp(".*_remote \\(package:actors.*"),
+              ]))));
+    }, timeout: Timeout(Duration(minutes: 5)));
   });
 }

@@ -241,6 +241,12 @@ void _remote(msg) async {
           isError = true;
         }
       }
+      if (isError && result is Error) {
+        // Error has a stacktrace which we cannot send back, so turn the error
+        // into an String representation of it so we can send it
+        result =
+            RemoteErrorException("$result\n${(result as Error).stackTrace}");
+      }
       _callerPort.send(_Message(msg.id, result, isError: isError));
     }
   } else {
