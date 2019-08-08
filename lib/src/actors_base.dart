@@ -16,6 +16,25 @@ class _BoostrapData<M, A> {
   _BoostrapData(this.sendPort, this.handler);
 }
 
+/// An [Exception] that holds information about an [Error] thrown in a remote
+/// [Isolate].
+///
+/// This is necessary because [Error] instances cannot be moved between different
+/// isolates.
+///
+/// An [Error] thrown by an [Actor] when handling a message is turned into
+/// a [RemoteErrorExcpeption] on the calling isolate. All information about the
+/// error, including its String-formatted stack-trace, is available in the
+/// resulting [RemoteErrorException] in the [errorAsString] field.
+class RemoteErrorException implements Exception {
+  final String errorAsString;
+
+  const RemoteErrorException(this.errorAsString);
+
+  @override
+  String toString() => 'RemoteErrorException{$errorAsString}';
+}
+
 typedef HandlerFunction<M, A> = FutureOr<A> Function(M message);
 
 /// A [Handler] implements the logic to handle messages.
