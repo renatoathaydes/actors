@@ -1,6 +1,10 @@
 import 'dart:async';
 import 'dart:isolate';
 
+import 'stub_actor.dart'
+    if (dart.library.io) 'isolate/isolate_actor.dart'
+    if (dart.library.html) 'web_worker/web_worker_actor.dart';
+
 final _actorTerminate = 1;
 
 class _Message {
@@ -97,8 +101,7 @@ mixin Messenger<M, A> {
 /// Notice that an [Actor] cannot return a [Stream] of any kind, only a single
 /// [FutureOr] of type [A]. To return a [Stream], use [StreamActor] instead.
 class Actor<M, A> with Messenger<M, A> {
-  @deprecated
-  Future<Isolate> isolate;
+  ActorImpl _isolate;
   final ReceivePort _localPort;
   Stream<_Message> _answerStream;
   Future<SendPort> _sendPort;
@@ -114,8 +117,9 @@ class Actor<M, A> with Messenger<M, A> {
     _answerStream = _localPort.cast<_Message>().asBroadcastStream();
     final id = _currentId++;
     _sendPort = _waitForRemotePort(id);
-    isolate = Isolate.spawn(
-        _remote, _Message(id, _BoostrapData(_localPort.sendPort, handler)));
+    _isolate = ActorImpl()
+      ..spawn(
+          _remote, _Message(id, _BoostrapData(_localPort.sendPort, handler)));
   }
 
   /// Creates an [Actor] based on a handler function.
@@ -167,7 +171,7 @@ class Actor<M, A> with Messenger<M, A> {
     (await _sendPort).send(_actorTerminate);
     await ack;
     _localPort.close();
-    (await isolate).kill(priority: Isolate.immediate);
+    await _isolate.close();
   }
 }
 
