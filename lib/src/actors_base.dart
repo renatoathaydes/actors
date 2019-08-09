@@ -199,18 +199,17 @@ class StreamActor<M, A> extends Actor<M, Stream<A>> {
   Stream<A> send(M message) {
     final id = _currentId++;
     final controller = StreamController<A>();
-    StreamSubscription subscription;
-    subscription = _answerStream.where((m) => m.id == id).listen((answer) {
+    _answerStream
+        .where((m) => m.id == id)
+        .takeWhile((m) => m.content != #actors_stream_done)
+        .listen((answer) {
       final content = answer.content;
       if (answer.isError) {
         controller.addError(content);
-      } else if (content == #actors_stream_done) {
-        controller.close();
-        subscription.cancel();
       } else {
         controller.add(content as A);
       }
-    });
+    }, onDone: controller.close);
     _sendPort.then((s) => s.send(_Message(id, message)));
     return controller.stream;
   }
