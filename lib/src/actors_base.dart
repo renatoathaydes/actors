@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:isolate';
 
+final _actorTerminate = 1;
+
 class _Message {
   final int id;
   final content;
@@ -89,17 +91,18 @@ class Actor<M, A> with Messenger<M, A> {
   @deprecated
   Future<Isolate> isolate;
   final ReceivePort _localPort;
-  Future<SendPort> _sendPort;
   Stream<_Message> _answerStream;
+  Future<SendPort> _sendPort;
   int _currentId = -2 ^ 30;
+  bool _isClosed = false;
 
   /// Creates an [Actor] that handles messages with the given [Handler].
   ///
   /// Use the [of] constructor to wrap a function directly.
   Actor(Handler<M, A> handler) : _localPort = ReceivePort() {
     _validateGenericType();
-    _answerStream = _answers().asBroadcastStream();
 
+    _answerStream = _localPort.cast<_Message>().asBroadcastStream();
     final id = _currentId++;
     _sendPort = _waitForRemotePort(id);
     isolate = Isolate.spawn(
@@ -116,15 +119,10 @@ class Actor<M, A> with Messenger<M, A> {
     }
   }
 
-  Future<SendPort> _waitForRemotePort(int id) async {
-    final firstAnswer = await _answerStream.firstWhere((msg) => msg.id == id);
-    return firstAnswer.content as SendPort;
-  }
-
-  Stream<_Message> _answers() async* {
-    await for (var answer in _localPort) {
-      yield answer as _Message;
-    }
+  Future<SendPort> _waitForRemotePort(int id) {
+    return _answerStream
+        .firstWhere((answer) => (answer.id == id))
+        .then((msg) => msg.content as SendPort);
   }
 
   /// Send a message to the [Handler] this [Actor] is based on.
@@ -136,19 +134,35 @@ class Actor<M, A> with Messenger<M, A> {
   /// the returned [Future] completes with an error,
   /// otherwise it completes with the answer given by the [Handler].
   @override
-  FutureOr<A> send(M message) async {
+  FutureOr<A> send(M message) {
     final id = _currentId++;
-    final future = _answerStream.firstWhere((answer) => answer.id == id);
-    (await _sendPort).send(_Message(id, message));
-    final result = await future;
-    final Object content = result.content;
-    if (result.isError) {
-      throw content;
+    final completer = Completer<A>();
+    Future<_Message> futureAnswer;
+    try {
+      futureAnswer = _answerStream.firstWhere((m) => m.id == id);
+    } catch (e) {
+      return Future.error(e, (e is Error) ? e.stackTrace : null);
     }
-    return content as FutureOr<A>;
+    _sendPort.then((s) => s.send(_Message(id, message)));
+    futureAnswer.then((answer) {
+      if (answer.isError) {
+        completer.completeError(answer.content);
+      } else {
+        completer.complete(answer.content as A);
+      }
+    });
+    return completer.future;
   }
 
   FutureOr close() async {
+    if (_isClosed) return;
+    _isClosed = true;
+    final ack = _answerStream
+        .firstWhere((msg) => msg.content == #actor_terminated)
+        .timeout(const Duration(seconds: 5), onTimeout: () => null);
+    (await _sendPort).send(_actorTerminate);
+    await ack;
+    _localPort.close();
     (await isolate).kill(priority: Isolate.immediate);
   }
 }
@@ -178,19 +192,23 @@ class StreamActor<M, A> extends Actor<M, Stream<A>> {
   /// the returned [Stream] emits an error,
   /// otherwise items provided by the [Handler] are streamed back to the caller.
   @override
-  Stream<A> send(M message) async* {
+  Stream<A> send(M message) {
     final id = _currentId++;
-    (await _sendPort).send(_Message(id, message));
-    await for (final answer
-        in _answerStream.where((answer) => answer.id == id)) {
-      if (answer.isError) throw answer.content;
+    final controller = StreamController<A>();
+    StreamSubscription subscription;
+    subscription = _answerStream.where((m) => m.id == id).listen((answer) {
       final content = answer.content;
-      if (content == #actors_stream_done) {
-        break;
+      if (answer.isError) {
+        controller.addError(content);
+      } else if (content == #actors_stream_done) {
+        controller.close();
+        subscription.cancel();
       } else {
-        yield content as A;
+        controller.add(content as A);
       }
-    }
+    });
+    _sendPort.then((s) => s.send(_Message(id, message)));
+    return controller.stream;
   }
 
   @override
@@ -209,7 +227,10 @@ SendPort _callerPort;
 ReceivePort _remotePort = ReceivePort();
 
 void _remote(msg) async {
-  if (msg is _Message) {
+  if (_actorTerminate == msg) {
+    _callerPort.send(_Message(0, #actor_terminated));
+    await Future(_remotePort.close);
+  } else if (msg is _Message) {
     if (_remoteHandler == null) {
       final data = msg.content as _BoostrapData;
       _remoteHandler = data.handler;

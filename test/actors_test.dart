@@ -64,6 +64,7 @@ void main() {
     test('can handle messages async', () async {
       expect(await actor.send('10'), equals(10));
     });
+
     test('error is propagated to caller', () {
       expect(actor.send('x'), throwsFormatException);
     });
@@ -110,16 +111,17 @@ void main() {
         'we get a wait time that is less than if they all ran sync', () async {
       final sleepTime = 100;
       final futures = actors.map((actor) => actor.send(sleepTime)).toList();
-      final startTime = DateTime.now();
+      final watch = Stopwatch()..start();
       for (final future in futures) {
         await future;
       }
-      final totalTimeIfRunInSeries = 100 * actors.length;
+      watch.stop();
+      final totalTimeIfRunInSeries = sleepTime * actors.length;
 
       // we know at least one Actor ran in parallel if the time it took to
       // wait for all futures is a little less than the theoretical minimal
       // if they had run in series
-      expect(DateTime.now().difference(startTime).inMilliseconds,
+      expect(watch.elapsedMilliseconds,
           inInclusiveRange(sleepTime, totalTimeIfRunInSeries - 10));
     }, retry: 1);
   });
@@ -131,6 +133,7 @@ void main() {
       await actor?.close();
       await typedActor?.close();
     });
+
     test('of dynamic type', () async {
       actor = StreamActor.of(dynamicStream);
       final answers = [];
@@ -139,7 +142,8 @@ void main() {
         answers.add(message);
       }
       expect(answers, equals([1, '#2', 3.0]));
-    }, timeout: Timeout(Duration(seconds: 5)));
+    }, timeout: const Timeout(Duration(seconds: 5)));
+
     test('with typed values', () async {
       typedActor = StreamActor<String, int>.of(handleTyped);
       final answers = <int>[];
@@ -148,7 +152,19 @@ void main() {
         answers.add(message);
       }
       expect(answers, equals([10, 20]));
-    }, timeout: Timeout(Duration(seconds: 5)));
+    }, timeout: const Timeout(Duration(seconds: 5)));
+
+    test('with typed values (repeated execution with error between)', () async {
+      typedActor = StreamActor<String, int>.of(handleTyped);
+      final sendGoodMessage = () => typedActor.send('good message').toList();
+      final answers = <int>[];
+      answers.addAll(await sendGoodMessage());
+      answers.addAll(await sendGoodMessage());
+      expect(() => typedActor.send('throw').toList(), throwsA(isException));
+      answers.addAll(await sendGoodMessage());
+      answers.addAll(await sendGoodMessage());
+      expect(answers, equals([10, 20, 10, 20, 10, 20, 10, 20]));
+    }, timeout: const Timeout(Duration(seconds: 5)));
 
     test('with typed values (error is propagated)', () {
       typedActor = StreamActor<String, int>.of(handleTyped);
@@ -156,7 +172,7 @@ void main() {
           typedActor.send('throw').first,
           throwsA(isException.having((error) => error.toString(),
               'expected error message', equals('Exception: Bad message'))));
-    }, timeout: Timeout(Duration(minutes: 5)));
+    }, timeout: const Timeout(Duration(minutes: 5)));
 
     test('with typed values (stacktrace error is propagated)', () {
       typedActor = StreamActor<String, int>.of(handleTyped);
@@ -172,6 +188,6 @@ void main() {
                 // and the package and function that handles remote messages
                 RegExp(".*_remote \\(package:actors.*"),
               ]))));
-    }, timeout: Timeout(Duration(minutes: 5)));
+    }, timeout: const Timeout(Duration(minutes: 5)));
   });
 }

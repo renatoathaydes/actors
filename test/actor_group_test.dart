@@ -57,7 +57,7 @@ void main() {
     });
   });
 
-  group('ActorGroup MHandlesWithNAcks Strategy', () {
+  group('ActorGroup MultiHandler Strategy', () {
     ActorGroup<int, int> actorGroup;
 
     setUp(() {
