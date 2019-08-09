@@ -37,6 +37,15 @@ class RemoteErrorException implements Exception {
   String toString() => 'RemoteErrorException{$errorAsString}';
 }
 
+/// An Exception that indicates that the channel of communication with a
+/// [Messenger] has been broken.
+///
+/// This typically occurs when an [Actor] is closed while it still has pending
+/// messages being processed.
+class MessengerStreamBroken implements Exception {
+  const MessengerStreamBroken();
+}
+
 typedef HandlerFunction<M, A> = FutureOr<A> Function(M message);
 
 /// A [Handler] implements the logic to handle messages.
@@ -137,12 +146,7 @@ class Actor<M, A> with Messenger<M, A> {
   FutureOr<A> send(M message) {
     final id = _currentId++;
     final completer = Completer<A>();
-    Future<_Message> futureAnswer;
-    try {
-      futureAnswer = _answerStream.firstWhere((m) => m.id == id);
-    } catch (e) {
-      return Future.error(e, (e is Error) ? e.stackTrace : null);
-    }
+    final futureAnswer = _answerStream.firstWhere((m) => m.id == id);
     _sendPort.then((s) => s.send(_Message(id, message)));
     futureAnswer.then((answer) {
       if (answer.isError) {
@@ -150,7 +154,7 @@ class Actor<M, A> with Messenger<M, A> {
       } else {
         completer.complete(answer.content as A);
       }
-    });
+    }, onError: (e) => completer.completeError(const MessengerStreamBroken()));
     return completer.future;
   }
 

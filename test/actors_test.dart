@@ -98,9 +98,21 @@ void main() {
     });
   });
 
+  group('Actors closed while processing message', () {
+    Actor<int, void> actor;
+    setUp(() {
+      actor = Actor.of(sleepingActor);
+    });
+    test('should throw on call site', () async {
+      final response = actor.send(250);
+      await Future.delayed(Duration(milliseconds: 150));
+      await actor.close();
+      expect(() async => await response, throwsA(isMessengerStreamBroken));
+    });
+  });
+
   group('Actors really run in parallel', () {
     List<Actor<int, void>> actors;
-    Actor<int, void> actor2;
 
     setUp(() {
       actors = Iterable.generate(5, (_) => Actor.of(sleepingActor)).toList();
@@ -189,5 +201,19 @@ void main() {
                 RegExp(".*_remote \\(package:actors.*"),
               ]))));
     }, timeout: const Timeout(Duration(minutes: 5)));
+
+    test('can be closed while streaming', () async {
+      typedActor = StreamActor<String, int>.of(handleTyped);
+      final answers = <int>[];
+      answers.addAll(await typedActor.send('good message').toList());
+      final stream = typedActor.send('good message').asBroadcastStream();
+      answers.add(await stream.first);
+      await typedActor.close();
+      expect(answers, equals([10, 20, 10]));
+      expect(
+          stream.first,
+          throwsA(isStateError.having(
+              (e) => e.message, 'error message', equals('No element'))));
+    }, timeout: const Timeout(Duration(seconds: 5)));
   });
 }

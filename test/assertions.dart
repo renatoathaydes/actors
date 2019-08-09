@@ -3,6 +3,8 @@ import 'package:test/test.dart';
 
 final isRemoteErrorException = TypeMatcher<RemoteErrorException>();
 
+final isMessengerStreamBroken = TypeMatcher<MessengerStreamBroken>();
+
 Matcher linesIncluding(List someExpectedLines) =>
     _RemoteErrorExceptionMatcher((lines) {
       for (var expected in someExpectedLines) {
