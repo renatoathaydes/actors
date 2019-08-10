@@ -1,3 +1,9 @@
+## 0.6.0
+
+- Stopped exposing Isolate from Actor. This should allow a web implementation in the future.
+- Convert remote Error into a RemoteErrorException to be able to send it back to caller.
+- Fixed close() method so that Actors actually drop all subscriptions and allow the system to die when all Actors are closed. 
+
 ## 0.5.0
 
 - Created StreamActor to support Actors that return Streams.
