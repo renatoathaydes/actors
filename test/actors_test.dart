@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:actors/actors.dart';
 import 'package:test/test.dart';
 
+import 'assertions.dart';
+
 class IntParserActor with Handler<String, int> {
   @override
   int handle(String message) => int.parse(message);
@@ -20,12 +22,17 @@ handleDynamic(message) {
 }
 
 Stream<int> handleTyped(String message) async* {
-  if (message == 'good message') {
-    for (final item in [10, 20]) {
-      yield item;
-    }
-  } else {
-    throw Exception('Bad message');
+  switch (message) {
+    case 'good message':
+      for (final item in [10, 20]) {
+        yield item;
+      }
+      break;
+    case 'throw':
+      throw Exception('Bad message');
+    default:
+      String s;
+      s.trim(); // throw with stacktrace!!
   }
 }
 
@@ -57,6 +64,7 @@ void main() {
     test('can handle messages async', () async {
       expect(await actor.send('10'), equals(10));
     });
+
     test('error is propagated to caller', () {
       expect(actor.send('x'), throwsFormatException);
     });
@@ -90,9 +98,21 @@ void main() {
     });
   });
 
+  group('Actors closed while processing message', () {
+    Actor<int, void> actor;
+    setUp(() {
+      actor = Actor.of(sleepingActor);
+    });
+    test('should throw on call site', () async {
+      final response = actor.send(250);
+      await Future.delayed(Duration(milliseconds: 150));
+      await actor.close();
+      expect(() async => await response, throwsA(isMessengerStreamBroken));
+    });
+  });
+
   group('Actors really run in parallel', () {
     List<Actor<int, void>> actors;
-    Actor<int, void> actor2;
 
     setUp(() {
       actors = Iterable.generate(5, (_) => Actor.of(sleepingActor)).toList();
@@ -103,16 +123,17 @@ void main() {
         'we get a wait time that is less than if they all ran sync', () async {
       final sleepTime = 100;
       final futures = actors.map((actor) => actor.send(sleepTime)).toList();
-      final startTime = DateTime.now();
+      final watch = Stopwatch()..start();
       for (final future in futures) {
         await future;
       }
-      final totalTimeIfRunInSeries = 100 * actors.length;
+      watch.stop();
+      final totalTimeIfRunInSeries = sleepTime * actors.length;
 
       // we know at least one Actor ran in parallel if the time it took to
       // wait for all futures is a little less than the theoretical minimal
       // if they had run in series
-      expect(DateTime.now().difference(startTime).inMilliseconds,
+      expect(watch.elapsedMilliseconds,
           inInclusiveRange(sleepTime, totalTimeIfRunInSeries - 10));
     }, retry: 1);
   });
@@ -124,6 +145,7 @@ void main() {
       await actor?.close();
       await typedActor?.close();
     });
+
     test('of dynamic type', () async {
       actor = StreamActor.of(dynamicStream);
       final answers = [];
@@ -132,7 +154,8 @@ void main() {
         answers.add(message);
       }
       expect(answers, equals([1, '#2', 3.0]));
-    }, timeout: Timeout(Duration(seconds: 5)));
+    }, timeout: const Timeout(Duration(seconds: 5)));
+
     test('with typed values', () async {
       typedActor = StreamActor<String, int>.of(handleTyped);
       final answers = <int>[];
@@ -141,14 +164,56 @@ void main() {
         answers.add(message);
       }
       expect(answers, equals([10, 20]));
-    }, timeout: Timeout(Duration(seconds: 5)));
+    }, timeout: const Timeout(Duration(seconds: 5)));
+
+    test('with typed values (repeated execution with error between)', () async {
+      typedActor = StreamActor<String, int>.of(handleTyped);
+      final sendGoodMessage = () => typedActor.send('good message').toList();
+      final answers = <int>[];
+      answers.addAll(await sendGoodMessage());
+      answers.addAll(await sendGoodMessage());
+      expect(() => typedActor.send('throw').toList(), throwsA(isException));
+      answers.addAll(await sendGoodMessage());
+      answers.addAll(await sendGoodMessage());
+      expect(answers, equals([10, 20, 10, 20, 10, 20, 10, 20]));
+    }, timeout: const Timeout(Duration(seconds: 5)));
 
     test('with typed values (error is propagated)', () {
       typedActor = StreamActor<String, int>.of(handleTyped);
       expect(
-          typedActor.send('bad message').first,
+          typedActor.send('throw').first,
           throwsA(isException.having((error) => error.toString(),
               'expected error message', equals('Exception: Bad message'))));
-    }, timeout: Timeout(Duration(seconds: 5)));
+    }, timeout: const Timeout(Duration(minutes: 5)));
+
+    test('with typed values (stacktrace error is propagated)', () {
+      typedActor = StreamActor<String, int>.of(handleTyped);
+      expect(
+          typedActor.send('throw with stacktrace').first,
+          throwsA(isRemoteErrorException.having(
+              (e) => e.errorAsString,
+              'expected error message',
+              linesIncluding([
+                "NoSuchMethodError: The method 'trim' was called on null.",
+                // needs to contain the function that threw in the remote Isolate
+                RegExp(".*handleTyped \\(file:.*"),
+                // and the package and function that handles remote messages
+                RegExp(".*_remote \\(package:actors.*"),
+              ]))));
+    }, timeout: const Timeout(Duration(minutes: 5)));
+
+    test('can be closed while streaming', () async {
+      typedActor = StreamActor<String, int>.of(handleTyped);
+      final answers = <int>[];
+      answers.addAll(await typedActor.send('good message').toList());
+      final stream = typedActor.send('good message').asBroadcastStream();
+      answers.add(await stream.first);
+      await typedActor.close();
+      expect(answers, equals([10, 20, 10]));
+      expect(
+          stream.first,
+          throwsA(isStateError.having(
+              (e) => e.message, 'error message', equals('No element'))));
+    }, timeout: const Timeout(Duration(seconds: 5)));
   });
 }

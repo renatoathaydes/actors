@@ -79,6 +79,7 @@ more of the expected receivers are likely to fail, as the system will still cont
 // create a group of 4 actors
 final group = ActorGroup(Two(), size: 4);
 print(await group.send(5)); // 10
+group.close();
 ```
 
 ## Messenger
@@ -96,11 +97,13 @@ print(await messenger.send(2)); // 4
 // or it can be an Actor
 messenger = Actor(Two());
 print(await messenger.send(3)); // 6
+messenger.close();
 
 // or an ActorGroup
 messenger = ActorGroup(Two(), size: 2);
 print(await messenger.send(4)); // 8
 print(await messenger.send(5)); // 10
+messenger.close();
 ```
 
 This makes it possible to write code that works the same whether the message is handled locally or in another `Isolate`.

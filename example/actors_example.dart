@@ -33,7 +33,6 @@ void main() async {
     await localMessengerExample();
     await streamActorExample();
   }, zoneSpecification: ZoneSpecification(print: printAndCheck));
-  exit(0);
 }
 
 Future actorExample() async {
@@ -88,15 +87,16 @@ Future localMessengerExample() async {
   // a Messenger can be local
   messenger = LocalMessenger(Counter());
   print(await messenger.send(2)); // 2
+  await messenger.close();
 
   // or it can be an Actor
   messenger = Actor(Counter());
   print(await messenger.send(3)); // 3
+  await messenger.close();
 
   // or an ActorGroup
   messenger = ActorGroup.of(times2, size: 2);
   print(await messenger.send(4)); // 8
   print(await messenger.send(5)); // 10
-
   await messenger.close();
 }
