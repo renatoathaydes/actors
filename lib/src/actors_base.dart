@@ -11,8 +11,11 @@ class _Message {
   final int id;
   final content;
   final bool isError;
+  final String stackTraceToStringOrNull;
 
-  _Message(this.id, this.content, {this.isError = false});
+  _Message(this.id, this.content, {this.isError = false, this.stackTraceToStringOrNull});
+
+  StackTrace get stacktraceOrNull => stackTraceToStringOrNull != null ? StackTrace.fromString(stackTraceToStringOrNull) : null;
 }
 
 class _BoostrapData<M, A> {
@@ -154,11 +157,13 @@ class Actor<M, A> with Messenger<M, A> {
     _sendPort.then((s) => s.send(_Message(id, message)));
     futureAnswer.then((answer) {
       if (answer.isError) {
-        completer.completeError(answer.content);
+        completer.completeError(answer.content, answer.stacktraceOrNull);
       } else {
         completer.complete(answer.content as A);
       }
-    }, onError: (e) => completer.completeError(const MessengerStreamBroken()));
+    }, onError: (e, StackTrace stackTrace) {
+      completer.completeError(const MessengerStreamBroken(), stackTrace);
+    });
     return completer.future;
   }
 
@@ -246,15 +251,17 @@ void _remote(msg) async {
       _callerPort.send(_Message(msg.id, _remotePort.sendPort));
     } else {
       Object result;
+      StackTrace trace;
       bool isError = false;
       try {
         result = _remoteHandler.handle(msg.content);
         while (result is Future) {
           result = await result;
         }
-      } catch (e) {
+      } catch (e, _trace) {
         result = e;
         isError = true;
+        trace = _trace;
       }
 
       if (!isError && result is Stream) {
@@ -264,9 +271,10 @@ void _remote(msg) async {
           }
           // actor doesn't know we're done if we don't tell it explicitly
           result = #actors_stream_done;
-        } catch (e) {
+        } catch (e, _trace) {
           result = e;
           isError = true;
+          trace = _trace;
         }
       }
       if (isError && result is Error) {
@@ -275,7 +283,7 @@ void _remote(msg) async {
         result =
             RemoteErrorException("$result\n${(result as Error).stackTrace}");
       }
-      _callerPort.send(_Message(msg.id, result, isError: isError));
+      _callerPort.send(_Message(msg.id, result, isError: isError, stackTraceToStringOrNull: trace?.toString()));
     }
   } else {
     throw StateError('Unexpected message: $msg');
