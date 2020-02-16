@@ -47,17 +47,3 @@ Future expectToThrow(FutureOr action(),
   }
   return null;
 }
-
-class _ExceptionWithStacktraceMatcher extends Matcher {
-  @override
-  Description describe(Description description) {
-    // TODO: implement describe
-    return null;
-  }
-
-  @override
-  bool matches(item, Map matchState) {
-    // TODO: implement matches
-    return null;
-  }
-}
