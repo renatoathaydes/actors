@@ -216,7 +216,7 @@ class StreamActor<M, A> extends Actor<M, Stream<A>> {
         .listen((answer) {
       final content = answer.content;
       if (answer.isError) {
-        controller.addError(content);
+        controller.addError(content, answer.stacktrace);
       } else {
         controller.add(content as A);
       }
@@ -282,8 +282,7 @@ void _remote(msg) async {
       if (isError && result is Error) {
         // Error has a stacktrace which we cannot send back, so turn the error
         // into an String representation of it so we can send it
-        result =
-            RemoteErrorException("$result\n${(result as Error).stackTrace}");
+        result = RemoteErrorException("$result");
       }
       _callerPort
           .send(_Message(msg.id, result, stackTraceString: trace?.toString()));

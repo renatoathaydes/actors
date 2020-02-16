@@ -53,6 +53,30 @@ Future<void> sleepingActor(int message) async {
   await Future.delayed(Duration(milliseconds: message));
 }
 
+class ErrorMethods with Handler<String, void> {
+  @override
+  FutureOr<void> handle(String message) {
+    switch (message) {
+      case 'exception':
+        return _exception();
+      case 'error':
+        return _error();
+    }
+  }
+
+  _exception() {
+    _nest();
+  }
+
+  _nest() {
+    throw FormatException("always bad format");
+  }
+
+  _error() {
+    throw ArgumentError.value("value is always wrong", "none");
+  }
+}
+
 void main() {
   group('Typed Actor can run in isolate', () {
     Actor<String, int> actor;
@@ -95,6 +119,35 @@ void main() {
       expect(await actor.send(null), equals(4));
       expect(await actor.send(null), equals(5));
       expect(await actor.send(null), equals(6));
+    });
+  });
+
+  group('Actors problems', () {
+    Actor<String, void> actor;
+    setUp(() {
+      actor = Actor(ErrorMethods());
+    });
+    test('Exceptions are propagated to caller', () async {
+      await expectToThrow(
+        () async => await actor.send('exception'),
+        matchException: isA<FormatException>(),
+        matchTrace: linesIncluding([
+          RegExp('.* ErrorMethods._nest.*'),
+          RegExp('.*ErrorMethods._exception.*'),
+        ]),
+      );
+    });
+    test('Errors are propagated to caller', () async {
+      await expectToThrow(
+        () async => await actor.send('error'),
+        matchException: isA<RemoteErrorException>().having(
+            (e) => e.errorAsString,
+            'errorAsString',
+            contains('value is always wrong')),
+        matchTrace: linesIncluding([
+          RegExp('.*ErrorMethods._error.*'),
+        ]),
+      );
     });
   });
 
@@ -186,20 +239,21 @@ void main() {
               'expected error message', equals('Exception: Bad message'))));
     }, timeout: const Timeout(Duration(minutes: 5)));
 
-    test('with typed values (stacktrace error is propagated)', () {
+    test('with typed values (stacktrace error is propagated)', () async {
       typedActor = StreamActor<String, int>.of(handleTyped);
-      expect(
-          typedActor.send('throw with stacktrace').first,
-          throwsA(isRemoteErrorException.having(
+      await expectToThrow(() => typedActor.send('throw with stacktrace').first,
+          matchException: isRemoteErrorException.having(
               (e) => e.errorAsString,
               'expected error message',
               linesIncluding([
                 "NoSuchMethodError: The method 'trim' was called on null.",
-                // needs to contain the function that threw in the remote Isolate
-                RegExp(".*handleTyped \\(file:.*"),
-                // and the package and function that handles remote messages
-                RegExp(".*_remote \\(package:actors.*"),
-              ]))));
+              ])),
+          matchTrace: linesIncluding([
+            // needs to contain the function that threw in the remote Isolate
+            RegExp(".*handleTyped \\(file:.*"),
+            // and the package and function that handles remote messages
+            RegExp(".*_remote \\(package:actors.*"),
+          ]));
     }, timeout: const Timeout(Duration(minutes: 5)));
 
     test('can be closed while streaming', () async {
