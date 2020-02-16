@@ -11,11 +11,11 @@ class _Message {
   final int id;
   final content;
   final bool isError;
-  final String stackTraceToStringOrNull;
+  final String stackTraceString;
 
-  _Message(this.id, this.content, {this.isError = false, this.stackTraceToStringOrNull});
+  _Message(this.id, this.content, {this.isError = false, this.stackTraceString});
 
-  StackTrace get stacktraceOrNull => stackTraceToStringOrNull != null ? StackTrace.fromString(stackTraceToStringOrNull) : null;
+  StackTrace get stacktrace => stackTraceString != null ? StackTrace.fromString(stackTraceString) : null;
 }
 
 class _BoostrapData<M, A> {
@@ -157,7 +157,7 @@ class Actor<M, A> with Messenger<M, A> {
     _sendPort.then((s) => s.send(_Message(id, message)));
     futureAnswer.then((answer) {
       if (answer.isError) {
-        completer.completeError(answer.content, answer.stacktraceOrNull);
+        completer.completeError(answer.content, answer.stacktrace);
       } else {
         completer.complete(answer.content as A);
       }
@@ -283,7 +283,7 @@ void _remote(msg) async {
         result =
             RemoteErrorException("$result\n${(result as Error).stackTrace}");
       }
-      _callerPort.send(_Message(msg.id, result, isError: isError, stackTraceToStringOrNull: trace?.toString()));
+      _callerPort.send(_Message(msg.id, result, isError: isError, stackTraceString: trace?.toString()));
     }
   } else {
     throw StateError('Unexpected message: $msg');
