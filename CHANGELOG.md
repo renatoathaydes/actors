@@ -1,3 +1,7 @@
+## 0.6.1
+
+- Propagate stacktrace to caller on Exception inside an Actor.
+
 ## 0.6.0
 
 - Stopped exposing Isolate from Actor. This should allow a web implementation in the future.
