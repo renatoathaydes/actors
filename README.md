@@ -1,5 +1,7 @@
 # actors
 
+> [actors is on pub.dev](https://pub.dev/packages/actors)!
+
 `actors` is a library that enables the use of the Actors Model in Dart.
 
 It is a thin wrapper around Dart's `Isolate` (on Flutter and Dart VM) that makes them much easier to use.
