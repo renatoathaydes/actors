@@ -8,6 +8,7 @@ import 'package:actors/actors.dart';
 class Counter with Handler<int, int> {
   int _count = 0;
 
+  @override
   int handle(int n) => _count += n;
 }
 
@@ -22,7 +23,7 @@ void printAndCheck(Zone self, ZoneDelegate parent, Zone zone, String line) {
   if (line == _expectedLines.current) {
     stdout.writeln(line);
   } else {
-    throw Exception("Unexpected line: $line, not ${_expectedLines.current}");
+    throw Exception('Unexpected line: $line, not ${_expectedLines.current}');
   }
 }
 

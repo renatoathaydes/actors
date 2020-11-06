@@ -7,11 +7,12 @@ final isRemoteErrorException = TypeMatcher<RemoteErrorException>();
 
 final isMessengerStreamBroken = TypeMatcher<MessengerStreamBroken>();
 
-Matcher linesIncluding(List someExpectedLines) =>
+Matcher linesIncluding(List<Object> someExpectedLines) =>
     _RemoteErrorExceptionMatcher((lines) {
-      for (var expected in someExpectedLines) {
+      for (final expected in someExpectedLines) {
         if (expected is RegExp) {
-          if (!lines.any((l) => expected.hasMatch(l))) {
+          final exp = expected;
+          if (!lines.any((l) => exp.hasMatch(l))) {
             return false;
           }
         } else if (!lines.contains(expected)) {
@@ -32,12 +33,12 @@ class _RemoteErrorExceptionMatcher extends Matcher {
 
   @override
   bool matches(item, Map matchState) {
-    return _checkErrorMessageLines(item.toString().split("\n"));
+    return _checkErrorMessageLines(item.toString().split('\n'));
   }
 }
 
-Future expectToThrow(FutureOr action(),
-    {Matcher matchException, Matcher matchTrace}) async {
+Future expectToThrow(FutureOr Function() action,
+    {Matcher? matchException, Matcher? matchTrace}) async {
   try {
     await action();
     throw AssertionError('Expected action to throw, but it returned normally');

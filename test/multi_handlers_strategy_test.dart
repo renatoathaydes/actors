@@ -5,8 +5,8 @@ import 'package:test/test.dart';
 
 class _CompletableCounter {
   int _value = 0;
-  final int completesAt;
-  Completer _completer = Completer();
+  final int? completesAt;
+  final _completer = Completer();
 
   _CompletableCounter({this.completesAt});
 
@@ -27,13 +27,14 @@ void main() {
     test('should respect the documented policy to forward and compute answers',
         () async {
       final defaultStrategy = MultiHandler<int, int>();
-      int counter1 = 0;
-      int counter2 = 0;
-      int counter3 = 0;
-      int counter4 = 0;
+      var counter1 = 0;
+      var counter2 = 0;
+      var counter3 = 0;
+      var counter4 = 0;
 
       final completer = _CompletableCounter(completesAt: 4);
 
+      // ignore: omit_local_variable_types
       _MakesHandler handlerIncrementing = (int counterIndex) {
         return (n) {
           switch (counterIndex) {
@@ -86,14 +87,15 @@ void main() {
           handlersPerMessage: 3,
           combineAnswers: (answers) => answers.fold(0, (a, b) => a + b));
 
-      int counter1 = 0;
-      int counter2 = 0;
-      int counter3 = 0;
-      int counter4 = 0;
+      var counter1 = 0;
+      var counter2 = 0;
+      var counter3 = 0;
+      var counter4 = 0;
 
       // this should timeout as only 3 messengers will be called
       final completer = _CompletableCounter(completesAt: 4);
 
+      // ignore: omit_local_variable_types
       _MakesHandler handlerIncrementing = (int counterIndex) {
         return (n) {
           switch (counterIndex) {
@@ -150,13 +152,14 @@ void main() {
           handlersPerMessage: 4,
           combineAnswers: (answers) => answers.fold(0, (a, b) => a + b));
 
-      int counter1 = 0;
-      int counter2 = 0;
-      int counter3 = 0;
-      int counter4 = 0;
+      var counter1 = 0;
+      var counter2 = 0;
+      var counter3 = 0;
+      var counter4 = 0;
 
       final completer = _CompletableCounter(completesAt: 4);
 
+      // ignore: omit_local_variable_types
       _MakesHandler handlerIncrementing = (int counterIndex) {
         return (n) {
           switch (counterIndex) {
@@ -201,6 +204,7 @@ void main() {
     test('should fail if x messengers fail where x > n', () async {
       final customStrategy = MultiHandler<int, int>(minAnswers: 3);
 
+      // ignore: omit_local_variable_types
       _MakesHandler handlerIncrementing = (int counterIndex) {
         return (n) {
           // throws on indexes 1 and 3, passes on 0 and 2, so it'll never

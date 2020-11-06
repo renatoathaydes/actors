@@ -4,7 +4,7 @@ import 'actors_base.dart';
 ///
 /// The message is handled by the [Handler] (provided in the constructor)
 /// asynchronously in the event queue.
-class LocalMessenger<M, A> with Messenger<M, A> {
+class LocalMessenger<M extends Object, A extends Object> with Messenger<M, A> {
   final Handler<M, A> _handler;
 
   /// Creates a [LocalMessenger] that handles messages with the given [Handler].

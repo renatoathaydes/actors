@@ -9,22 +9,23 @@ final _actorTerminate = 1;
 
 class _Message {
   final int id;
-  final content;
-  final String stackTraceString;
+  final Object content;
+  final String? stackTraceString;
 
-  _Message(this.id, this.content, {this.stackTraceString});
+  const _Message(this.id, this.content, {this.stackTraceString});
 
-  StackTrace get stacktrace =>
-      stackTraceString != null ? StackTrace.fromString(stackTraceString) : null;
+  StackTrace? get stacktrace => stackTraceString != null
+      ? StackTrace.fromString(stackTraceString!)
+      : null;
 
   bool get isError => stackTraceString != null;
 }
 
-class _BoostrapData<M, A> {
+class _BoostrapData<M extends Object, A extends Object> {
   final SendPort sendPort;
   final Handler<M, A> handler;
 
-  _BoostrapData(this.sendPort, this.handler);
+  const _BoostrapData(this.sendPort, this.handler);
 }
 
 /// An [Exception] that holds information about an [Error] thrown in a remote
@@ -58,22 +59,24 @@ class MessengerStreamBroken implements Exception {
 typedef HandlerFunction<M, A> = FutureOr<A> Function(M message);
 
 /// A [Handler] implements the logic to handle messages.
-mixin Handler<M, A> {
+mixin Handler<M extends Object, A extends Object> {
   /// Handle a message, optionally sending an answer back to the caller.
   FutureOr<A> handle(M message);
 }
 
-class _HandlerOfFunction<M, A> with Handler<M, A> {
+class _HandlerOfFunction<M extends Object, A extends Object>
+    with Handler<M, A> {
   final HandlerFunction<M, A> _function;
 
-  _HandlerOfFunction(this._function);
+  const _HandlerOfFunction(this._function);
 
   @override
   FutureOr<A> handle(M message) => _function(message);
 }
 
 /// Wrap a [HandlerFunction] into a [Handler] object.
-Handler<M, A> asHandler<M, A>(HandlerFunction<M, A> handlerFunction) =>
+Handler<M, A> asHandler<M extends Object, A extends Object>(
+        HandlerFunction<M, A> handlerFunction) =>
     _HandlerOfFunction(handlerFunction);
 
 /// A [Messenger] can send a message and receive an answer asynchronously.
@@ -105,11 +108,11 @@ mixin Messenger<M, A> {
 ///
 /// Notice that an [Actor] cannot return a [Stream] of any kind, only a single
 /// [FutureOr] of type [A]. To return a [Stream], use [StreamActor] instead.
-class Actor<M, A> with Messenger<M, A> {
-  ActorImpl _isolate;
+class Actor<M extends Object, A extends Object> with Messenger<M, A> {
+  late final ActorImpl _isolate;
   final ReceivePort _localPort;
-  Stream<_Message> _answerStream;
-  Future<SendPort> _sendPort;
+  late final Stream<_Message> _answerStream;
+  late final Future<SendPort> _sendPort;
   int _currentId = -2 ^ 30;
   bool _isClosed = false;
 
@@ -133,7 +136,7 @@ class Actor<M, A> with Messenger<M, A> {
   void _validateGenericType() {
     if (A.toString().startsWith('Stream<')) {
       throw StateError(
-          "Actor cannot return a Stream. Use StreamActor instead.");
+          'Actor cannot return a Stream. Use StreamActor instead.');
     }
   }
 
@@ -157,7 +160,7 @@ class Actor<M, A> with Messenger<M, A> {
     final completer = Completer<A>();
     final futureAnswer = _answerStream.firstWhere((m) => m.id == id);
     _sendPort.then((s) => s.send(_Message(id, message)));
-    futureAnswer.then((answer) {
+    futureAnswer.then((_Message answer) {
       if (answer.isError) {
         completer.completeError(answer.content, answer.stacktrace);
       } else {
@@ -169,12 +172,14 @@ class Actor<M, A> with Messenger<M, A> {
     return completer.future;
   }
 
+  @override
   FutureOr close() async {
     if (_isClosed) return;
     _isClosed = true;
     final ack = _answerStream
         .firstWhere((msg) => msg.content == #actor_terminated)
-        .timeout(const Duration(seconds: 5), onTimeout: () => null);
+        .timeout(const Duration(seconds: 5),
+            onTimeout: () => const _Message(0, #timeout));
     (await _sendPort).send(_actorTerminate);
     await ack;
     _localPort.close();
@@ -188,7 +193,7 @@ class Actor<M, A> with Messenger<M, A> {
 /// This can be used to for "push" communication, where an [Actor] is able to,
 /// from a different [Isolate], send many messages back to the caller, which
 /// can listen to messages using the standard [Stream] API.
-class StreamActor<M, A> extends Actor<M, Stream<A>> {
+class StreamActor<M extends Object, A> extends Actor<M, Stream<A>> {
   /// Creates a [StreamActor] that handles messages with the given [Handler].
   ///
   /// Use the [of] constructor to wrap a function directly.
@@ -236,28 +241,35 @@ class StreamActor<M, A> extends Actor<M, Stream<A>> {
 // i.e. the code that runs in the Actor's Isolate.
 /////////////////////////////////////////////////////////
 
-Handler _remoteHandler;
-SendPort _callerPort;
-ReceivePort _remotePort = ReceivePort();
+class _RemoteState {
+  late final Handler remoteHandler;
+  late final SendPort callerPort;
+  bool isInitialized = false;
+}
+
+final _remoteState = _RemoteState();
+final _remotePort = ReceivePort();
 
 void _remote(msg) async {
   if (_actorTerminate == msg) {
-    _callerPort.send(_Message(0, #actor_terminated));
+    // we can only receive this message once the RemoteState has been initialized
+    _remoteState.callerPort.send(_Message(0, #actor_terminated));
     await Future(_remotePort.close);
   } else if (msg is _Message) {
-    if (_remoteHandler == null) {
+    if (!_remoteState.isInitialized) {
       final data = msg.content as _BoostrapData;
-      _remoteHandler = data.handler;
-      _callerPort = data.sendPort;
+      _remoteState.remoteHandler = data.handler;
+      _remoteState.callerPort = data.sendPort;
+      _remoteState.isInitialized = true;
       _remotePort.listen(_remote);
-      _callerPort.send(_Message(msg.id, _remotePort.sendPort));
+      _remoteState.callerPort.send(_Message(msg.id, _remotePort.sendPort));
     } else {
       Object result;
-      StackTrace trace;
-      bool isError = false;
+      StackTrace? trace;
+      var isError = false;
       try {
-        result = _remoteHandler.handle(msg.content);
-        while (result is Future) {
+        result = _remoteState.remoteHandler.handle(msg.content);
+        while (result is Future<Object>) {
           result = await result;
         }
       } catch (e, _trace) {
@@ -266,10 +278,10 @@ void _remote(msg) async {
         trace = _trace;
       }
 
-      if (!isError && result is Stream) {
+      if (!isError && result is Stream<Object>) {
         try {
           await for (var item in result) {
-            _callerPort.send(_Message(msg.id, item));
+            _remoteState.callerPort.send(_Message(msg.id, item));
           }
           // actor doesn't know we're done if we don't tell it explicitly
           result = #actors_stream_done;
@@ -282,9 +294,9 @@ void _remote(msg) async {
       if (isError && result is Error) {
         // Error has a stacktrace which we cannot send back, so turn the error
         // into an String representation of it so we can send it
-        result = RemoteErrorException("$result");
+        result = RemoteErrorException('$result');
       }
-      _callerPort
+      _remoteState.callerPort
           .send(_Message(msg.id, result, stackTraceString: trace?.toString()));
     }
   } else {
