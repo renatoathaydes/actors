@@ -30,9 +30,11 @@ Stream<int> handleTyped(String message) async* {
       break;
     case 'throw':
       throw Exception('Bad message');
+    case 'throw with stacktrace':
     default:
-      String? s;
-      s!.trim(); // throw with stacktrace!!
+      // cause an Error intentionally
+      message.substring(66);
+      yield 0;
   }
 }
 
@@ -248,7 +250,7 @@ void main() {
               (e) => e.errorAsString,
               'expected error message',
               linesIncluding([
-                "NoSuchMethodError: The method 'trim' was called on null.",
+                'RangeError: Value not in range: 66',
               ])),
           matchTrace: linesIncluding([
             // needs to contain the function that threw in the remote Isolate
