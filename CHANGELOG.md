@@ -1,3 +1,10 @@
+## 0.7.0-nullsafety
+
+> This version should only be used if you're
+> [experimenting with NNBD](https://github.com/flutter/flutter/wiki/Experimenting-with-null-safety-in-Flutter).
+
+- Enabled null-safety.
+
 ## 0.6.1
 
 - Propagate stacktrace to caller on Exception inside an Actor.
