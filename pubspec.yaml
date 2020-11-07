@@ -2,6 +2,7 @@ name: actors
 description: Actors Model library for Dart. It is a thin wrapper around Dart's `Isolate` that makes them much easier to use.
 version: 0.7.0-nullsafety
 homepage: https://github.com/renatoathaydes/actors
+publish_to: none
 
 environment:
   sdk: ">=2.12.0-13.0.dev <2.13.0"
