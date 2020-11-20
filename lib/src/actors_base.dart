@@ -278,10 +278,10 @@ void _remote(msg) async {
         trace = _trace;
       }
 
-      if (!isError && result is Stream<Object>) {
+      if (!isError && result is Stream) {
         try {
           await for (var item in result) {
-            _remoteState.callerPort.send(_Message(msg.id, item));
+            _remoteState.callerPort.send(_Message(msg.id, item as Object));
           }
           // actor doesn't know we're done if we don't tell it explicitly
           result = #actors_stream_done;

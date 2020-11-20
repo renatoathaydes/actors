@@ -113,16 +113,16 @@ void main() {
   });
 
   group('Actor can maintain internal state', () {
-    late Actor<void, int> actor;
+    late Actor<Symbol, int> actor;
 
     setUp(() {
       actor = Actor(CounterActor()..count = 4);
     });
 
     test('actor uses internal state to respond', () async {
-      expect(await actor.send(null), equals(4));
-      expect(await actor.send(null), equals(5));
-      expect(await actor.send(null), equals(6));
+      expect(await actor.send(#void), equals(4));
+      expect(await actor.send(#void), equals(5));
+      expect(await actor.send(#void), equals(6));
     });
   });
 
