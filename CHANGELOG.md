@@ -1,7 +1,7 @@
-## 0.7.0-nullsafety
+## 0.7.0-nullsafety.0
 
 > This version should only be used if you're
-> [experimenting with NNBD](https://github.com/flutter/flutter/wiki/Experimenting-with-null-safety-in-Flutter).
+> [migrating to Dart with null-safety](https://dart.dev/null-safety/migration-guide).
 
 - Enabled null-safety.
 
