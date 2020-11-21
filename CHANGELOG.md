@@ -1,3 +1,10 @@
+## 0.7.0-nullsafety.1
+
+> This version should only be used if you're
+> [migrating to Dart with null-safety](https://dart.dev/null-safety/migration-guide).
+
+- Allow Actors to send and return nullable types.
+
 ## 0.7.0-nullsafety.0
 
 > This version should only be used if you're
