@@ -9,7 +9,7 @@ final _actorTerminate = 1;
 
 class _Message {
   final int id;
-  final Object content;
+  final Object? content;
   final String? stackTraceString;
 
   const _Message(this.id, this.content, {this.stackTraceString});
@@ -21,7 +21,7 @@ class _Message {
   bool get isError => stackTraceString != null;
 }
 
-class _BoostrapData<M extends Object, A extends Object> {
+class _BoostrapData<M, A> {
   final SendPort sendPort;
   final Handler<M, A> handler;
 
@@ -59,12 +59,12 @@ class MessengerStreamBroken implements Exception {
 typedef HandlerFunction<M, A> = FutureOr<A> Function(M message);
 
 /// A [Handler] implements the logic to handle messages.
-mixin Handler<M extends Object, A extends Object> {
+mixin Handler<M, A> {
   /// Handle a message, optionally sending an answer back to the caller.
   FutureOr<A> handle(M message);
 }
 
-class _HandlerOfFunction<M extends Object, A extends Object>
+class _HandlerOfFunction<M, A>
     with Handler<M, A> {
   final HandlerFunction<M, A> _function;
 
@@ -75,7 +75,7 @@ class _HandlerOfFunction<M extends Object, A extends Object>
 }
 
 /// Wrap a [HandlerFunction] into a [Handler] object.
-Handler<M, A> asHandler<M extends Object, A extends Object>(
+Handler<M, A> asHandler<M, A>(
         HandlerFunction<M, A> handlerFunction) =>
     _HandlerOfFunction(handlerFunction);
 
@@ -108,7 +108,7 @@ mixin Messenger<M, A> {
 ///
 /// Notice that an [Actor] cannot return a [Stream] of any kind, only a single
 /// [FutureOr] of type [A]. To return a [Stream], use [StreamActor] instead.
-class Actor<M extends Object, A extends Object> with Messenger<M, A> {
+class Actor<M, A> with Messenger<M, A> {
   late final ActorImpl _isolate;
   final ReceivePort _localPort;
   late final Stream<_Message> _answerStream;
@@ -162,7 +162,8 @@ class Actor<M extends Object, A extends Object> with Messenger<M, A> {
     _sendPort.then((s) => s.send(_Message(id, message)));
     futureAnswer.then((_Message answer) {
       if (answer.isError) {
-        completer.completeError(answer.content, answer.stacktrace);
+        // if the answer is an error, its content will never be null
+        completer.completeError(answer.content!, answer.stacktrace);
       } else {
         completer.complete(answer.content as A);
       }
@@ -193,7 +194,7 @@ class Actor<M extends Object, A extends Object> with Messenger<M, A> {
 /// This can be used to for "push" communication, where an [Actor] is able to,
 /// from a different [Isolate], send many messages back to the caller, which
 /// can listen to messages using the standard [Stream] API.
-class StreamActor<M extends Object, A> extends Actor<M, Stream<A>> {
+class StreamActor<M, A> extends Actor<M, Stream<A>> {
   /// Creates a [StreamActor] that handles messages with the given [Handler].
   ///
   /// Use the [of] constructor to wrap a function directly.
@@ -221,7 +222,7 @@ class StreamActor<M extends Object, A> extends Actor<M, Stream<A>> {
         .listen((answer) {
       final content = answer.content;
       if (answer.isError) {
-        controller.addError(content, answer.stacktrace);
+        controller.addError(content!, answer.stacktrace);
       } else {
         controller.add(content as A);
       }
@@ -264,12 +265,12 @@ void _remote(msg) async {
       _remotePort.listen(_remote);
       _remoteState.callerPort.send(_Message(msg.id, _remotePort.sendPort));
     } else {
-      Object result;
+      Object? result;
       StackTrace? trace;
       var isError = false;
       try {
         result = _remoteState.remoteHandler.handle(msg.content);
-        while (result is Future<Object>) {
+        while (result is Future) {
           result = await result;
         }
       } catch (e, _trace) {
@@ -281,7 +282,7 @@ void _remote(msg) async {
       if (!isError && result is Stream) {
         try {
           await for (var item in result) {
-            _remoteState.callerPort.send(_Message(msg.id, item as Object));
+            _remoteState.callerPort.send(_Message(msg.id, item));
           }
           // actor doesn't know we're done if we don't tell it explicitly
           result = #actors_stream_done;

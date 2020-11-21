@@ -10,6 +10,11 @@ class IntParserActor with Handler<String, int> {
   int handle(String message) => int.parse(message);
 }
 
+class TryIntParserActor with Handler<String, int?> {
+  @override
+  int? handle(String message) => int.tryParse(message);
+}
+
 Object handleDynamic(message) {
   switch (message.runtimeType) {
     case String:
@@ -39,33 +44,47 @@ Stream<int> handleTyped(String message) async* {
 }
 
 Stream dynamicStream(value) async* {
-  for (final i in [1, '#2', 3.0]) {
+  for (final i in [1, '#2', null, 3.0]) {
     yield i;
   }
 }
 
-class CounterActor with Handler<Symbol, int> {
+class CounterActor with Handler<Symbol?, int> {
   int count = 0;
 
   @override
-  int handle(Symbol message) => count++;
+  int handle(Symbol? message) {
+    switch (message) {
+      case #add:
+        count++;
+        break;
+      case #sub:
+        count--;
+        break;
+      case null:
+        break;
+      default:
+        throw 'unexpected message';
+    }
+    return count;
+  }
 }
 
-Future<Symbol> sleepingActor(int message) async {
+Future<void> sleepingActor(int message) async {
   await Future.delayed(Duration(milliseconds: message));
-  return #nothing;
 }
 
-class ErrorMethods with Handler<String, Symbol> {
+class ErrorMethods with Handler<String, Never> {
   @override
-  FutureOr<Symbol> handle(String message) {
+  FutureOr<Never> handle(String message) {
     switch (message) {
       case 'exception':
         _exception();
       case 'error':
         _error();
+      default:
+        throw 'unexpected message';
     }
-    return #unreachable;
   }
 
   Never _exception() {
@@ -98,6 +117,22 @@ void main() {
     });
   });
 
+  group('Typed Actor returning possibly null value can run in isolate', () {
+    late Actor<String, int?> actor;
+
+    setUp(() {
+      actor = Actor(TryIntParserActor());
+    });
+
+    test('can handle messages async', () async {
+      expect(await actor.send('10'), equals(10));
+    });
+
+    test('bad message results in null being returned', () async {
+      expect(await actor.send('x'), isNull);
+    });
+  });
+
   group('Untyped Actor can run in isolate', () {
     late Actor actor;
 
@@ -113,16 +148,18 @@ void main() {
   });
 
   group('Actor can maintain internal state', () {
-    late Actor<Symbol, int> actor;
+    late Actor<Symbol?, int> actor;
 
     setUp(() {
       actor = Actor(CounterActor()..count = 4);
     });
 
     test('actor uses internal state to respond', () async {
-      expect(await actor.send(#void), equals(4));
-      expect(await actor.send(#void), equals(5));
-      expect(await actor.send(#void), equals(6));
+      expect(await actor.send(null), equals(4));
+      expect(await actor.send(#add), equals(5));
+      expect(await actor.send(#add), equals(6));
+      expect(await actor.send(#sub), equals(5));
+      expect(await actor.send(#sub), equals(4));
     });
   });
 
@@ -206,11 +243,11 @@ void main() {
     test('of dynamic type', () async {
       actor = StreamActor.of(dynamicStream);
       final answers = [];
-      var stream = await actor!.send(#start);
+      var stream = await actor!.send(null);
       await for (final message in stream) {
         answers.add(message);
       }
-      expect(answers, equals([1, '#2', 3.0]));
+      expect(answers, equals([1, '#2', null, 3.0]));
     }, timeout: const Timeout(Duration(seconds: 5)));
 
     test('with typed values', () async {

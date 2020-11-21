@@ -161,7 +161,7 @@ class _Group<M, A> {
 /// [GroupStrategy].
 ///
 /// Each [Actor] runs, as usual, in its own [Isolate].
-class ActorGroup<M extends Object, A extends Object> with Messenger<M, A> {
+class ActorGroup<M, A> with Messenger<M, A> {
   final int size;
   final _Group<M, A> _group;
 
@@ -184,7 +184,7 @@ class ActorGroup<M extends Object, A extends Object> with Messenger<M, A> {
       {int size = 6, GroupStrategy<M, A>? strategy})
       : this(asHandler(handlerFunction), size: size, strategy: strategy);
 
-  static List<Messenger<M, A>> _buildActors<M extends Object, A extends Object>(
+  static List<Messenger<M, A>> _buildActors<M, A>(
       int size, Handler<M, A> handler) {
     if (size < 1) {
       throw ArgumentError.value(size, 'size', 'must be a positive number');
