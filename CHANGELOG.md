@@ -1,3 +1,7 @@
+## 0.7.0
+
+- Null-safety stable relese.
+
 ## 0.7.0-nullsafety.1
 
 > This version should only be used if you're
