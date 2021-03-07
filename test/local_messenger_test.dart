@@ -10,8 +10,8 @@ class Counter with Handler<int, int> {
 
 void main() {
   group('LocalMessenger can run in locally', () {
-    LocalMessenger<int, int> messenger;
-    Counter counter;
+    late LocalMessenger<int, int> messenger;
+    late Counter counter;
 
     setUp(() {
       counter = Counter();

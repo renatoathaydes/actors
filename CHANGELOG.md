@@ -1,3 +1,21 @@
+## 0.7.0
+
+- Null-safety stable relese.
+
+## 0.7.0-nullsafety.1
+
+> This version should only be used if you're
+> [migrating to Dart with null-safety](https://dart.dev/null-safety/migration-guide).
+
+- Allow Actors to send and return nullable types.
+
+## 0.7.0-nullsafety.0
+
+> This version should only be used if you're
+> [migrating to Dart with null-safety](https://dart.dev/null-safety/migration-guide).
+
+- Enabled null-safety.
+
 ## 0.6.1
 
 - Propagate stacktrace to caller on Exception inside an Actor.

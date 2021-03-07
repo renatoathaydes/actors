@@ -33,7 +33,7 @@ class _MultiCompleter<A> {
     }
   }
 
-  void completeError(Object error, [StackTrace stackTrace]) {
+  void completeError(Object error, [StackTrace? stackTrace]) {
     if (_completer.isCompleted) return;
     _errorCount++;
     final actorsLeft = _maxPossibleCompletions - _answers.length - _errorCount;
@@ -53,7 +53,8 @@ class _MultiCompleter<A> {
 /// available group's messengers each time a message is sent,
 /// but this behaviour may change in the future.
 class MultiHandler<M, A> extends GroupStrategy<M, A> {
-  final int minAnswers, handlersPerMessage;
+  final int minAnswers;
+  final int? handlersPerMessage;
   final A Function(List<A>) combineAnswers;
 
   /// Creates a [MultiHandler] with:
@@ -69,11 +70,12 @@ class MultiHandler<M, A> extends GroupStrategy<M, A> {
   MultiHandler(
       {this.minAnswers = 2,
       this.handlersPerMessage,
-      A Function(List<A>) combineAnswers})
+      A Function(List<A>)? combineAnswers})
       : combineAnswers = combineAnswers ?? _firstAnswerIfAllEqual {
-    if (handlersPerMessage != null && minAnswers > handlersPerMessage) {
+    final _handlersPerMessage = handlersPerMessage;
+    if (_handlersPerMessage != null && minAnswers > _handlersPerMessage) {
       throw ArgumentError(
-          'minAnswers > handlersPerMessage ($minAnswers > $handlersPerMessage)');
+          'minAnswers > handlersPerMessage ($minAnswers > $_handlersPerMessage)');
     }
   }
 
@@ -81,8 +83,8 @@ class MultiHandler<M, A> extends GroupStrategy<M, A> {
     final firstAnswer = answers[0];
     final ok = answers.skip(1).every((answer) => answer == firstAnswer);
     if (ok) return firstAnswer;
-    throw Exception("Inconsistent answers received from different "
-        "Actors in the group");
+    throw Exception('Inconsistent answers received from different '
+        'Actors in the group');
   }
 
   @override
@@ -126,8 +128,8 @@ class RoundRobin<M, A> extends GroupStrategy<M, A> {
 
   @override
   HandlerFunction<M, A> toHandler(List<Messenger<M, A>> messengers) {
-    int index = 0;
-    int size = messengers.length;
+    var index = 0;
+    var size = messengers.length;
     return (M message) => messengers[index++ % size].send(message);
   }
 }
@@ -170,7 +172,7 @@ class ActorGroup<M, A> with Messenger<M, A> {
   ///
   /// Use the [of] constructor to wrap a function directly.
   ActorGroup(Handler<M, A> handler,
-      {int size = 6, GroupStrategy<M, A> strategy})
+      {int size = 6, GroupStrategy<M, A>? strategy})
       : size = size,
         _group =
             _Group(_buildActors(size, handler), strategy ?? RoundRobin<M, A>());
@@ -179,7 +181,7 @@ class ActorGroup<M, A> with Messenger<M, A> {
   ///
   /// A [GroupStrategy] may be provided, defaulting to [RoundRobin].
   ActorGroup.of(HandlerFunction<M, A> handlerFunction,
-      {int size = 6, GroupStrategy<M, A> strategy})
+      {int size = 6, GroupStrategy<M, A>? strategy})
       : this(asHandler(handlerFunction), size: size, strategy: strategy);
 
   static List<Messenger<M, A>> _buildActors<M, A>(
@@ -187,11 +189,8 @@ class ActorGroup<M, A> with Messenger<M, A> {
     if (size < 1) {
       throw ArgumentError.value(size, 'size', 'must be a positive number');
     }
-    final actors = List<Messenger<M, A>>(size);
-    for (int i = 0; i < size; i++) {
-      actors[i] = Actor(handler);
-    }
-    return actors;
+
+    return List.generate(size, (_) => Actor(handler), growable: false);
   }
 
   @override

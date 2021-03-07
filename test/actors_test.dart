@@ -10,8 +10,13 @@ class IntParserActor with Handler<String, int> {
   int handle(String message) => int.parse(message);
 }
 
-handleDynamic(message) {
-  switch (message.runtimeType as Type) {
+class TryIntParserActor with Handler<String, int?> {
+  @override
+  int? handle(String message) => int.tryParse(message);
+}
+
+Object handleDynamic(message) {
+  switch (message.runtimeType) {
     case String:
       return 'string';
     case int:
@@ -30,56 +35,74 @@ Stream<int> handleTyped(String message) async* {
       break;
     case 'throw':
       throw Exception('Bad message');
+    case 'throw with stacktrace':
     default:
-      String s;
-      s.trim(); // throw with stacktrace!!
+      // cause an Error intentionally
+      message.substring(66);
+      yield 0;
   }
 }
 
 Stream dynamicStream(value) async* {
-  for (final i in [1, '#2', 3.0]) {
+  for (final i in [1, '#2', null, 3.0]) {
     yield i;
   }
 }
 
-class CounterActor with Handler<void, int> {
+class CounterActor with Handler<Symbol?, int> {
   int count = 0;
 
   @override
-  int handle(void message) => count++;
+  int handle(Symbol? message) {
+    switch (message) {
+      case #add:
+        count++;
+        break;
+      case #sub:
+        count--;
+        break;
+      case null:
+        break;
+      default:
+        throw 'unexpected message';
+    }
+    return count;
+  }
 }
 
 Future<void> sleepingActor(int message) async {
   await Future.delayed(Duration(milliseconds: message));
 }
 
-class ErrorMethods with Handler<String, void> {
+class ErrorMethods with Handler<String, Never> {
   @override
-  FutureOr<void> handle(String message) {
+  FutureOr<Never> handle(String message) {
     switch (message) {
       case 'exception':
-        return _exception();
+        _exception();
       case 'error':
-        return _error();
+        _error();
+      default:
+        throw 'unexpected message';
     }
   }
 
-  _exception() {
+  Never _exception() {
     _nest();
   }
 
-  _nest() {
-    throw FormatException("always bad format");
+  Never _nest() {
+    throw FormatException('always bad format');
   }
 
-  _error() {
-    throw ArgumentError.value("value is always wrong", "none");
+  Never _error() {
+    throw ArgumentError.value('value is always wrong', 'none');
   }
 }
 
 void main() {
   group('Typed Actor can run in isolate', () {
-    Actor<String, int> actor;
+    late Actor<String, int> actor;
 
     setUp(() {
       actor = Actor(IntParserActor());
@@ -94,8 +117,24 @@ void main() {
     });
   });
 
+  group('Typed Actor returning possibly null value can run in isolate', () {
+    late Actor<String, int?> actor;
+
+    setUp(() {
+      actor = Actor(TryIntParserActor());
+    });
+
+    test('can handle messages async', () async {
+      expect(await actor.send('10'), equals(10));
+    });
+
+    test('bad message results in null being returned', () async {
+      expect(await actor.send('x'), isNull);
+    });
+  });
+
   group('Untyped Actor can run in isolate', () {
-    Actor actor;
+    late Actor actor;
 
     setUp(() {
       actor = Actor.of(handleDynamic);
@@ -109,7 +148,7 @@ void main() {
   });
 
   group('Actor can maintain internal state', () {
-    Actor<void, int> actor;
+    late Actor<Symbol?, int> actor;
 
     setUp(() {
       actor = Actor(CounterActor()..count = 4);
@@ -117,13 +156,15 @@ void main() {
 
     test('actor uses internal state to respond', () async {
       expect(await actor.send(null), equals(4));
-      expect(await actor.send(null), equals(5));
-      expect(await actor.send(null), equals(6));
+      expect(await actor.send(#add), equals(5));
+      expect(await actor.send(#add), equals(6));
+      expect(await actor.send(#sub), equals(5));
+      expect(await actor.send(#sub), equals(4));
     });
   });
 
   group('Actors problems', () {
-    Actor<String, void> actor;
+    late Actor<String, void> actor;
     setUp(() {
       actor = Actor(ErrorMethods());
     });
@@ -152,7 +193,7 @@ void main() {
   });
 
   group('Actors closed while processing message', () {
-    Actor<int, void> actor;
+    late Actor<int, void> actor;
     setUp(() {
       actor = Actor.of(sleepingActor);
     });
@@ -165,7 +206,7 @@ void main() {
   });
 
   group('Actors really run in parallel', () {
-    List<Actor<int, void>> actors;
+    late List<Actor<int, void>> actors;
 
     setUp(() {
       actors = Iterable.generate(5, (_) => Actor.of(sleepingActor)).toList();
@@ -192,8 +233,8 @@ void main() {
   });
 
   group('StreamActors can return Stream', () {
-    StreamActor actor;
-    StreamActor<String, int> typedActor;
+    StreamActor? actor;
+    StreamActor<String, int>? typedActor;
     tearDown(() async {
       await actor?.close();
       await typedActor?.close();
@@ -202,17 +243,17 @@ void main() {
     test('of dynamic type', () async {
       actor = StreamActor.of(dynamicStream);
       final answers = [];
-      Stream stream = await actor.send(#start);
+      var stream = actor!.send(null);
       await for (final message in stream) {
         answers.add(message);
       }
-      expect(answers, equals([1, '#2', 3.0]));
+      expect(answers, equals([1, '#2', null, 3.0]));
     }, timeout: const Timeout(Duration(seconds: 5)));
 
     test('with typed values', () async {
       typedActor = StreamActor<String, int>.of(handleTyped);
       final answers = <int>[];
-      Stream<int> stream = typedActor.send('good message');
+      var stream = typedActor!.send('good message');
       await for (final message in stream) {
         answers.add(message);
       }
@@ -221,11 +262,11 @@ void main() {
 
     test('with typed values (repeated execution with error between)', () async {
       typedActor = StreamActor<String, int>.of(handleTyped);
-      final sendGoodMessage = () => typedActor.send('good message').toList();
+      final sendGoodMessage = () => typedActor!.send('good message').toList();
       final answers = <int>[];
       answers.addAll(await sendGoodMessage());
       answers.addAll(await sendGoodMessage());
-      expect(() => typedActor.send('throw').toList(), throwsA(isException));
+      expect(() => typedActor!.send('throw').toList(), throwsA(isException));
       answers.addAll(await sendGoodMessage());
       answers.addAll(await sendGoodMessage());
       expect(answers, equals([10, 20, 10, 20, 10, 20, 10, 20]));
@@ -234,35 +275,35 @@ void main() {
     test('with typed values (error is propagated)', () {
       typedActor = StreamActor<String, int>.of(handleTyped);
       expect(
-          typedActor.send('throw').first,
+          typedActor!.send('throw').first,
           throwsA(isException.having((error) => error.toString(),
               'expected error message', equals('Exception: Bad message'))));
     }, timeout: const Timeout(Duration(minutes: 5)));
 
     test('with typed values (stacktrace error is propagated)', () async {
       typedActor = StreamActor<String, int>.of(handleTyped);
-      await expectToThrow(() => typedActor.send('throw with stacktrace').first,
+      await expectToThrow(() => typedActor!.send('throw with stacktrace').first,
           matchException: isRemoteErrorException.having(
               (e) => e.errorAsString,
               'expected error message',
               linesIncluding([
-                "NoSuchMethodError: The method 'trim' was called on null.",
+                'RangeError: Value not in range: 66',
               ])),
           matchTrace: linesIncluding([
             // needs to contain the function that threw in the remote Isolate
-            RegExp(".*handleTyped \\(file:.*"),
+            RegExp('.*handleTyped \\(file:.*'),
             // and the package and function that handles remote messages
-            RegExp(".*_remote \\(package:actors.*"),
+            RegExp('.*_remote \\(package:actors.*'),
           ]));
     }, timeout: const Timeout(Duration(minutes: 5)));
 
     test('can be closed while streaming', () async {
       typedActor = StreamActor<String, int>.of(handleTyped);
       final answers = <int>[];
-      answers.addAll(await typedActor.send('good message').toList());
-      final stream = typedActor.send('good message').asBroadcastStream();
+      answers.addAll(await typedActor!.send('good message').toList());
+      final stream = typedActor!.send('good message').asBroadcastStream();
       answers.add(await stream.first);
-      await typedActor.close();
+      await typedActor!.close();
       expect(answers, equals([10, 20, 10]));
       expect(
           stream.first,

@@ -1,7 +1,7 @@
 import 'dart:isolate';
 
 class ActorImpl {
-  Future<Isolate> _iso;
+  late Future<Isolate> _iso;
 
   void spawn(void Function(dynamic) entryPoint, message) {
     _iso = Isolate.spawn(entryPoint, message);

@@ -12,14 +12,14 @@ class Two with Handler<int, int> {
 
 void main() {
   group('ActorGroup can handle messages like a single Actor', () {
-    ActorGroup<int, int> actorGroup;
+    late ActorGroup<int, int> actorGroup;
 
     setUp(() {
       actorGroup = ActorGroup(Two());
     });
 
     tearDown(() async {
-      await actorGroup?.close();
+      await actorGroup.close();
     });
 
     test('ActorGroup handles messages like single Actor', () async {
@@ -29,14 +29,14 @@ void main() {
     });
   });
   group('ActorGroup RoundRobin Strategy', () {
-    ActorGroup<int, int> actorGroup;
+    late ActorGroup<int, int> actorGroup;
 
     setUp(() {
       actorGroup = ActorGroup(Counter(), size: 3, strategy: const RoundRobin());
     });
 
     tearDown(() async {
-      await actorGroup?.close();
+      await actorGroup.close();
     });
 
     test('should handle messages one by one', () async {
@@ -58,7 +58,7 @@ void main() {
   });
 
   group('ActorGroup MultiHandler Strategy', () {
-    ActorGroup<int, int> actorGroup;
+    late ActorGroup<int, int> actorGroup;
 
     setUp(() {
       actorGroup = ActorGroup(Two(),
@@ -67,14 +67,14 @@ void main() {
               minAnswers: 2,
               combineAnswers: (answers) {
                 if (answers.length != 2) {
-                  throw 'Incorrect number of answers: ${answers}';
+                  throw 'Incorrect number of answers: $answers';
                 }
                 return answers[0] + answers[1];
               }));
     });
 
     tearDown(() async {
-      await actorGroup?.close();
+      await actorGroup.close();
     });
 
     test('any Actor can handle messages, only 2 acks are awaited', () async {

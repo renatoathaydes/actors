@@ -3,13 +3,13 @@ import 'dart:isolate';
 
 import 'package:actors/actors.dart';
 
-String withIso(message) => "${Isolate.current.hashCode} - $message";
+String withIso(message) => '${Isolate.current.hashCode} - $message';
 
-String sayHi(String name) => withIso("Hi ${name}!");
+String sayHi(String name) => withIso('Hi $name!');
 
-main() async {
-  print(withIso("main"));
+void main() async {
+  print(withIso('main'));
   final actor = Actor.of(sayHi);
-  print(await actor.send(Platform.environment['USER']));
+  print(await actor.send(Platform.environment['USER'] ?? 'anonymous'));
   await actor.close();
 }
