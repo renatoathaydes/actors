@@ -67,7 +67,7 @@ void main() {
               minAnswers: 2,
               combineAnswers: (answers) {
                 if (answers.length != 2) {
-                  throw 'Incorrect number of answers: ${answers}';
+                  throw 'Incorrect number of answers: $answers';
                 }
                 return answers[0] + answers[1];
               }));

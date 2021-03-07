@@ -64,8 +64,7 @@ mixin Handler<M, A> {
   FutureOr<A> handle(M message);
 }
 
-class _HandlerOfFunction<M, A>
-    with Handler<M, A> {
+class _HandlerOfFunction<M, A> with Handler<M, A> {
   final HandlerFunction<M, A> _function;
 
   const _HandlerOfFunction(this._function);
@@ -75,8 +74,7 @@ class _HandlerOfFunction<M, A>
 }
 
 /// Wrap a [HandlerFunction] into a [Handler] object.
-Handler<M, A> asHandler<M, A>(
-        HandlerFunction<M, A> handlerFunction) =>
+Handler<M, A> asHandler<M, A>(HandlerFunction<M, A> handlerFunction) =>
     _HandlerOfFunction(handlerFunction);
 
 /// A [Messenger] can send a message and receive an answer asynchronously.

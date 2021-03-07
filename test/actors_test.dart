@@ -243,7 +243,7 @@ void main() {
     test('of dynamic type', () async {
       actor = StreamActor.of(dynamicStream);
       final answers = [];
-      var stream = await actor!.send(null);
+      var stream = actor!.send(null);
       await for (final message in stream) {
         answers.add(message);
       }
