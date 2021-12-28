@@ -287,7 +287,7 @@ void main() {
               (e) => e.errorAsString,
               'expected error message',
               linesIncluding([
-                'RangeError: Value not in range: 66',
+                'RangeError (start): Invalid value: Not in inclusive range 0..21: 66',
               ])),
           matchTrace: linesIncluding([
             // needs to contain the function that threw in the remote Isolate
