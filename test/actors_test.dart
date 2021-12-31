@@ -262,7 +262,8 @@ void main() {
 
     test('with typed values (repeated execution with error between)', () async {
       typedActor = StreamActor<String, int>.of(handleTyped);
-      final sendGoodMessage = () => typedActor!.send('good message').toList();
+      Future<List<int>> sendGoodMessage() =>
+          typedActor!.send('good message').toList();
       final answers = <int>[];
       answers.addAll(await sendGoodMessage());
       answers.addAll(await sendGoodMessage());

@@ -172,9 +172,8 @@ class ActorGroup<M, A> with Messenger<M, A> {
   ///
   /// Use the [of] constructor to wrap a function directly.
   ActorGroup(Handler<M, A> handler,
-      {int size = 6, GroupStrategy<M, A>? strategy})
-      : size = size,
-        _group =
+      {this.size = 6, GroupStrategy<M, A>? strategy})
+      : _group =
             _Group(_buildActors(size, handler), strategy ?? RoundRobin<M, A>());
 
   /// Creates an [ActorGroup] with the given [size], based on a handler function.

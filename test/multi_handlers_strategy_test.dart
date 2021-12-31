@@ -20,8 +20,6 @@ class _CompletableCounter {
   Future get future => _completer.future;
 }
 
-typedef _MakesHandler = int Function(int) Function(int);
-
 void main() {
   group('MultiHandler', () {
     test('should respect the documented policy to forward and compute answers',
@@ -35,7 +33,7 @@ void main() {
       final completer = _CompletableCounter(completesAt: 4);
 
       // ignore: omit_local_variable_types
-      _MakesHandler handlerIncrementing = (int counterIndex) {
+      int Function(int) handlerIncrementing(int counterIndex) {
         return (n) {
           switch (counterIndex) {
             case 0:
@@ -53,7 +51,7 @@ void main() {
           completer.inc();
           return n + 1;
         };
-      };
+      }
 
       final messengers = Iterable.generate(
           4, (index) => LocalMessenger.of(handlerIncrementing(index)));
@@ -96,7 +94,7 @@ void main() {
       final completer = _CompletableCounter(completesAt: 4);
 
       // ignore: omit_local_variable_types
-      _MakesHandler handlerIncrementing = (int counterIndex) {
+      int Function(int) handlerIncrementing(int counterIndex) {
         return (n) {
           switch (counterIndex) {
             case 0:
@@ -114,7 +112,7 @@ void main() {
           completer.inc();
           return n + counterIndex + 1;
         };
-      };
+      }
 
       final messengers = Iterable.generate(4,
           (index) => LocalMessenger<int, int>.of(handlerIncrementing(index)));
@@ -160,7 +158,7 @@ void main() {
       final completer = _CompletableCounter(completesAt: 4);
 
       // ignore: omit_local_variable_types
-      _MakesHandler handlerIncrementing = (int counterIndex) {
+      int Function(int) handlerIncrementing(int counterIndex) {
         return (n) {
           switch (counterIndex) {
             case 0:
@@ -180,7 +178,7 @@ void main() {
           completer.inc();
           return n + counterIndex + 1;
         };
-      };
+      }
 
       final messengers = Iterable.generate(4,
           (index) => LocalMessenger<int, int>.of(handlerIncrementing(index)));
@@ -205,14 +203,14 @@ void main() {
       final customStrategy = MultiHandler<int, int>(minAnswers: 3);
 
       // ignore: omit_local_variable_types
-      _MakesHandler handlerIncrementing = (int counterIndex) {
+      int Function(int) handlerIncrementing(int counterIndex) {
         return (n) {
           // throws on indexes 1 and 3, passes on 0 and 2, so it'll never
           // achieve 3 acks
           if (n % 2 != 0) throw "don't wanna do it";
           return n;
         };
-      };
+      }
 
       final messengers = Iterable.generate(4,
           (index) => LocalMessenger<int, int>.of(handlerIncrementing(index)));
