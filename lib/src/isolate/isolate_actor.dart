@@ -15,5 +15,9 @@ class ActorImpl {
 int _actorCount = 0;
 
 String _generateName() {
-  return "Actor-${_actorCount++}";
+  final isolateName = Isolate.current.debugName ?? '';
+  if (isolateName.isEmpty || isolateName == 'main') {
+    return 'Actor-${_actorCount++}';
+  }
+  return '$isolateName-Actor-${_actorCount++}';
 }
