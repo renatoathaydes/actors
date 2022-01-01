@@ -1,3 +1,7 @@
+## next
+
+- set debug name for `Isolate` backing an `Actor` (starts with `Actor-0`, then `Actor-1` and so on).
+
 ## 0.7.0
 
 - Null-safety stable relese.
