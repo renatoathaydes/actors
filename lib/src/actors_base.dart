@@ -1,24 +1,11 @@
 import 'dart:async';
 
+import 'message.dart';
 import 'stub_actor.dart'
     if (dart.library.io) 'isolate/isolate_actor.dart'
     if (dart.library.html) 'web_worker/web_worker_actor.dart';
 
 final _actorTerminate = 1;
-
-class Message {
-  final int id;
-  final Object? content;
-  final String? stackTraceString;
-
-  const Message(this.id, this.content, {this.stackTraceString});
-
-  StackTrace? get stacktrace => stackTraceString != null
-      ? StackTrace.fromString(stackTraceString!)
-      : null;
-
-  bool get isError => stackTraceString != null;
-}
 
 class _BoostrapData<M, A> {
   final Sender sendPort;

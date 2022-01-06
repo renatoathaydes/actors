@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:isolate';
 
-import '../../actors.dart';
+import '../message.dart';
 
 class ActorImpl {
   late Future<Isolate> _iso;
@@ -19,7 +19,7 @@ class ActorImpl {
     return ActorImpl(answerStream, receiver.sender, receiver);
   }
 
-  void spawn(void Function(dynamic) entryPoint, message) {
+  void spawn(void Function(Message) entryPoint, Message message) {
     _iso = Isolate.spawn(entryPoint, message, debugName: _generateName());
   }
 

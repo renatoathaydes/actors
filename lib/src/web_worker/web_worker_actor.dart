@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import '../../actors.dart';
+import '../message.dart';
 
 /// This is a non-exported type that stubs the needed methods to implement
 /// an Actor.
@@ -19,7 +19,7 @@ class ActorImpl {
   final Stream<Message> answerStream =
       throw 'Web Actors are not implemented yet!';
 
-  void spawn(void Function(dynamic) entryPoint, message) {}
+  void spawn(void Function(Message) entryPoint, Message message) {}
 
   Future<void> close() async {}
 }
