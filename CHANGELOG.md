@@ -1,6 +1,8 @@
-## next
+## 0.8.0
 
 - set debug name for `Isolate` backing an `Actor` (starts with `Actor-0`, then `Actor-1` and so on).
+- completed separation of `actors` API from actual implementation with `Isolate`.
+  In the future, this may allow implementing actors with web workers.
 
 ## 0.7.0
 
