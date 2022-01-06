@@ -1,3 +1,7 @@
+## 0.8.1
+
+- upgraded to Dart 2.15.0 to use updated Isolate API.
+
 ## 0.8.0
 
 - set debug name for `Isolate` backing an `Actor` (starts with `Actor-0`, then `Actor-1` and so on).
