@@ -8,10 +8,10 @@ import 'stub_actor.dart'
 final _actorTerminate = 1;
 
 class _BoostrapData<M, A> {
-  final Sender sendPort;
+  final Sender sender;
   final Handler<M, A> handler;
 
-  const _BoostrapData(this.sendPort, this.handler);
+  const _BoostrapData(this.sender, this.handler);
 }
 
 /// An [Exception] that holds information about an [Error] thrown in a remote
@@ -93,9 +93,9 @@ mixin Messenger<M, A> {
 /// Notice that an [Actor] cannot return a [Stream] of any kind, only a single
 /// [FutureOr] of type [A]. To return a [Stream], use [StreamActor] instead.
 class Actor<M, A> with Messenger<M, A> {
-  late final ActorImpl _isolate;
+  late final ActorImpl _actorImpl;
   late final Stream<Message> _answerStream;
-  late final Future<Sender> _sendPort;
+  late final Future<Sender> _sender;
   int _currentId = -2 ^ 30;
   bool _isClosed = false;
 
@@ -106,13 +106,13 @@ class Actor<M, A> with Messenger<M, A> {
     _validateGenericType();
 
     final id = _currentId++;
-    _isolate = ActorImpl.create();
+    _actorImpl = ActorImpl.create();
 
-    _isolate.spawn(
-        _remote, Message(id, _BoostrapData(_isolate.sender, handler)));
+    _actorImpl.spawn(
+        _remote, Message(id, _BoostrapData(_actorImpl.sender, handler)));
 
-    _answerStream = _isolate.answerStream;
-    _sendPort = _waitForRemotePort(id);
+    _answerStream = _actorImpl.answerStream;
+    _sender = _waitForRemotePort(id);
   }
 
   /// Creates an [Actor] based on a handler function.
@@ -144,7 +144,7 @@ class Actor<M, A> with Messenger<M, A> {
     final id = _currentId++;
     final completer = Completer<A>();
     final futureAnswer = _answerStream.firstWhere((m) => m.id == id);
-    _sendPort.then((s) => s.send(Message(id, message)));
+    _sender.then((s) => s.send(Message(id, message)));
     futureAnswer.then((Message answer) {
       if (answer.isError) {
         // if the answer is an error, its content will never be null
@@ -166,9 +166,9 @@ class Actor<M, A> with Messenger<M, A> {
         .firstWhere((msg) => msg.content == #actor_terminated)
         .timeout(const Duration(seconds: 5),
             onTimeout: () => const Message(0, #timeout));
-    (await _sendPort).send(_actorTerminate);
+    (await _sender).send(_actorTerminate);
     await ack;
-    await _isolate.close();
+    await _actorImpl.close();
   }
 }
 
@@ -211,7 +211,7 @@ class StreamActor<M, A> extends Actor<M, Stream<A>> {
         controller.add(content as A);
       }
     }, onDone: controller.close);
-    _sendPort.then((s) => s.send(Message(id, message)));
+    _sender.then((s) => s.send(Message(id, message)));
     return controller.stream;
   }
 
@@ -228,7 +228,7 @@ class StreamActor<M, A> extends Actor<M, Stream<A>> {
 
 class _RemoteState {
   late final Handler remoteHandler;
-  late final Sender callerPort;
+  late final Sender sender;
   bool isInitialized = false;
 }
 
@@ -238,16 +238,16 @@ final _remotePort = Receiver.create();
 void _remote(msg) async {
   if (_actorTerminate == msg) {
     // we can only receive this message once the RemoteState has been initialized
-    _remoteState.callerPort.send(Message(0, #actor_terminated));
+    _remoteState.sender.send(Message(0, #actor_terminated));
     await Future(_remotePort.close);
   } else if (msg is Message) {
     if (!_remoteState.isInitialized) {
       final data = msg.content as _BoostrapData;
       _remoteState.remoteHandler = data.handler;
-      _remoteState.callerPort = data.sendPort;
+      _remoteState.sender = data.sender;
       _remoteState.isInitialized = true;
       _remotePort.listen(_remote);
-      _remoteState.callerPort.send(Message(msg.id, _remotePort.sender));
+      _remoteState.sender.send(Message(msg.id, _remotePort.sender));
     } else {
       Object? result;
       StackTrace? trace;
@@ -266,7 +266,7 @@ void _remote(msg) async {
       if (!isError && result is Stream) {
         try {
           await for (var item in result) {
-            _remoteState.callerPort.send(Message(msg.id, item));
+            _remoteState.sender.send(Message(msg.id, item));
           }
           // actor doesn't know we're done if we don't tell it explicitly
           result = #actors_stream_done;
@@ -281,7 +281,7 @@ void _remote(msg) async {
         // into an String representation of it so we can send it
         result = RemoteErrorException('$result');
       }
-      _remoteState.callerPort
+      _remoteState.sender
           .send(Message(msg.id, result, stackTraceString: trace?.toString()));
     }
   } else {
