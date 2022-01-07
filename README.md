@@ -1,10 +1,12 @@
 # actors
 
-> [actors is on pub.dev](https://pub.dev/packages/actors)!
+[![Dartle CI](https://github.com/renatoathaydes/actors/workflows/Dartle%20CI/badge.svg)](https://github.com/renatoathaydes/actors/actions)
+[![pub package](https://img.shields.io/pub/v/actors)](https://pub.dev/packages/actors)
 
 `actors` is a library that enables the use of the Actors Model in Dart.
 
-It is a thin wrapper around Dart's `Isolate` (on Flutter and Dart VM) that makes them much easier to use.
+It is a thin wrapper around Dart's `Isolate` (on Flutter and Dart VM)
+and Web Workers (on the Web - TODO) that makes them much easier to use.
 
 ## Actor
 
