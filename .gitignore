@@ -13,3 +13,6 @@ doc/api/
 #IntelliJ
 .idea/
 *.iml
+
+# Test reports
+/reports/
