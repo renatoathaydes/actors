@@ -32,7 +32,9 @@ class ActorImpl {
 int _actorCount = 0;
 
 String _generateName() {
-  final isolateName = Isolate.current.debugName ?? '';
+  // Workaround https://github.com/dart-lang/sdk/issues/48090
+  final dynamic isolateNameWorkaround = Isolate.current.debugName;
+  final String isolateName = isolateNameWorkaround ?? '';
   if (isolateName.isEmpty || isolateName == 'main') {
     return 'Actor-${_actorCount++}';
   }

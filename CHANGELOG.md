@@ -1,3 +1,7 @@
+## 0.8.2
+
+- apply workaround to remove Dart bogus warning, see https://github.com/dart-lang/sdk/issues/48090.
+
 ## 0.8.1
 
 - upgraded to Dart 2.15.0 to use updated Isolate API.
