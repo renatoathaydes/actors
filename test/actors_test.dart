@@ -198,8 +198,8 @@ void main() {
       actor = Actor.of(sleepingActor);
     });
     test('should throw on call site', () async {
-      final response = actor.send(250);
-      await Future.delayed(Duration(milliseconds: 150));
+      final response = actor.send(500);
+      await Future.delayed(Duration(milliseconds: 250));
       await actor.close();
       expect(() async => await response, throwsA(isMessengerStreamBroken));
     });
