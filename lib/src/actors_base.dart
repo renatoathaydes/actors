@@ -21,7 +21,7 @@ class _BoostrapData<M, A> {
 /// isolates.
 ///
 /// An [Error] thrown by an [Actor] when handling a message is turned into
-/// a [RemoteErrorExcpeption] on the calling isolate. All information about the
+/// a [RemoteErrorException] on the calling isolate. All information about the
 /// error, including its String-formatted stack-trace, is available in the
 /// resulting [RemoteErrorException] in the [errorAsString] field.
 class RemoteErrorException implements Exception {
@@ -45,6 +45,9 @@ class MessengerStreamBroken implements Exception {
 typedef HandlerFunction<M, A> = FutureOr<A> Function(M message);
 
 /// A [Handler] implements the logic to handle messages.
+///
+/// Classes that might be used as [Actor]s or other [Messenger]s must
+/// implement this mixin.
 mixin Handler<M, A> {
   /// Handle a message, optionally sending an answer back to the caller.
   FutureOr<A> handle(M message);
@@ -70,6 +73,9 @@ mixin Messenger<M, A> {
   FutureOr<A> send(M message);
 
   /// Close this [Messenger].
+  ///
+  /// After this method is called, this Messenger should no longer respond
+  /// to any messages. It's an error to send messages to a closed Messenger.
   FutureOr close();
 }
 
@@ -80,15 +86,14 @@ mixin Messenger<M, A> {
 /// messages sent via the [Actor], communicating
 /// with the associated [Isolate] in a transparent manner.
 ///
-/// Because [Actor]s are mapped 1-1 to [Isolate]s, they are not cheap to create
-/// and the same limitations of [Isolate]s also apply to [Actor]s:
+/// [Actor]s are mapped 1-1 to [Isolate]s, so
+/// the limitations of [Isolate]s also apply to [Actor]s:
 ///
 /// * messages sent to [Actor]s must be copied into the [Isolate] the [Actor]
 ///   is running on.
-/// * the number of processing intensive [Actor]s should be around that
-///   of the number of CPUs available.
-/// * it may make sense to have a larger amount of [Actor]s if they are mostly
-///   IO-bound.
+/// * not all Dart objects can be sent to an Actor, see the limitations in
+/// [SendPort.send](https://api.dart.dev/stable/dart-isolate/SendPort/send.html)
+/// for details.
 ///
 /// Notice that an [Actor] cannot return a [Stream] of any kind, only a single
 /// [FutureOr] of type [A]. To return a [Stream], use [StreamActor] instead.
@@ -173,7 +178,7 @@ class Actor<M, A> with Messenger<M, A> {
 }
 
 /// An [Actor] that has the ability to return a [Stream], rather than only
-/// a single object.
+/// a single object, for each message it receives.
 ///
 /// This can be used to for "push" communication, where an [Actor] is able to,
 /// from a different [Isolate], send many messages back to the caller, which

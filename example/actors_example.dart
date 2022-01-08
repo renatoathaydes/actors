@@ -4,7 +4,14 @@ import 'dart:io';
 
 import 'package:actors/actors.dart';
 
-/// Example Handler that can be made an Actor.
+/// Example actor that keeps a counter as its state.
+///
+/// All it takes for a Dart class to become an Actor is for it to
+/// mixin [Handler] and be instantiated like:
+///
+/// ```dart
+/// final actor = Actor(Counter());
+/// ```
 class Counter with Handler<int, int> {
   int _count = 0;
 
@@ -54,7 +61,6 @@ Future actorGroupExample() async {
   // create a group of 4 actors from a simple top-level function...
   // in this example, any of the actors in the group could handle a
   // particular message.
-  // Notice that lambdas cannot be provided to "of", only top-level functions.
   final group = ActorGroup.of(times2, size: 4);
   print(await group.send(5)); // 10
   print(await group.send(6)); // 12

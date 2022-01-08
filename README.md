@@ -25,9 +25,7 @@ main() async {
 }
 ```
 
-If your actor does not maintain internal state, it can also be created from a function:
-
-> Due to limitations of `Isolate`, the function must be a top-level function, i.e. not a lambda. 
+If your actor does not maintain internal state, it can also be created from a function, or even a lambda:
 
 ```dart
 int two(int n) => n * 2;
