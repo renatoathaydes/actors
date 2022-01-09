@@ -101,6 +101,9 @@ class ErrorMethods with Handler<String, Never> {
 }
 
 void main() {
+  // must provide the name of the JS worker when running test on JS env
+  jsWorker = 'actors_test.dart.browser_test.dart.js';
+
   group('Typed Actor can run in isolate', () {
     late Actor<String, int> actor;
 
@@ -115,7 +118,7 @@ void main() {
     test('error is propagated to caller', () {
       expect(actor.send('x'), throwsFormatException);
     });
-  });
+  }, timeout: const Timeout(Duration(seconds: 2)));
 
   group('Typed Actor returning possibly null value can run in isolate', () {
     late Actor<String, int?> actor;
@@ -131,7 +134,7 @@ void main() {
     test('bad message results in null being returned', () async {
       expect(await actor.send('x'), isNull);
     });
-  });
+  }, timeout: const Timeout(Duration(seconds: 2)));
 
   group('Untyped Actor can run in isolate', () {
     late Actor actor;
@@ -145,7 +148,7 @@ void main() {
       expect(await actor.send('text'), equals('string'));
       expect(await actor.send(true), equals(-1));
     });
-  });
+  }, timeout: const Timeout(Duration(seconds: 2)));
 
   group('Actor can maintain internal state', () {
     late Actor<Symbol?, int> actor;
@@ -161,7 +164,7 @@ void main() {
       expect(await actor.send(#sub), equals(5));
       expect(await actor.send(#sub), equals(4));
     });
-  });
+  }, timeout: const Timeout(Duration(seconds: 2)));
 
   group('Actors problems', () {
     late Actor<String, void> actor;
@@ -190,7 +193,7 @@ void main() {
         ]),
       );
     });
-  });
+  }, timeout: const Timeout(Duration(seconds: 2)));
 
   group('Actors closed while processing message', () {
     late Actor<int, void> actor;
@@ -203,7 +206,7 @@ void main() {
       await actor.close();
       expect(() async => await response, throwsA(isMessengerStreamBroken));
     });
-  });
+  }, timeout: const Timeout(Duration(seconds: 4)));
 
   group('Actors really run in parallel', () {
     late List<Actor<int, void>> actors;
@@ -230,7 +233,7 @@ void main() {
       expect(watch.elapsedMilliseconds,
           inInclusiveRange(sleepTime, totalTimeIfRunInSeries - 10));
     }, retry: 1);
-  });
+  }, timeout: const Timeout(Duration(seconds: 4)));
 
   group('StreamActors can return Stream', () {
     StreamActor? actor;
@@ -296,7 +299,7 @@ void main() {
             // and the package and function that handles remote messages
             RegExp('.*_remote \\(package:actors.*'),
           ]));
-    }, timeout: const Timeout(Duration(minutes: 5)));
+    }, timeout: const Timeout(Duration(seconds: 5)));
 
     test('can be closed while streaming', () async {
       typedActor = StreamActor<String, int>.of(handleTyped);
@@ -311,5 +314,5 @@ void main() {
           throwsA(isStateError.having(
               (e) => e.message, 'error message', equals('No element'))));
     }, timeout: const Timeout(Duration(seconds: 5)));
-  });
+  }, timeout: const Timeout(Duration(seconds: 30)));
 }

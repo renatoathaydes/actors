@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:html' show Worker, window;
 
+import '../actors_base.dart' show jsWorker;
 import '../message.dart';
 
 /// This is a non-exported type that stubs the needed methods to implement
@@ -8,40 +10,69 @@ import '../message.dart';
 /// The implementations are based on [Isolate] on Dart VM, and [WebWorker]
 /// in the browser.
 class ActorImpl {
-  static ActorImpl create() {
-    throw Exception();
+  final Receiver receiver;
+
+  ActorImpl(this.receiver);
+
+  static ActorImpl create() => ActorImpl(Receiver.create());
+
+  Sender get sender => receiver.sender;
+
+  Stream<Message> get answerStream => receiver.answerStream;
+
+  void spawn(void Function(Message) entryPoint, Message message) {
+    // FIXME entryPoint is not needed?? How to run that in the worker?
+    // FIXME BootstrapMessage includes the sender, sending that seems to not work
+    // sender.send(message);
+    sender.send('start please');
   }
 
-  final Sender sender = throw 'Web Actors are not implemented yet!';
-
-  final Receiver receiver = throw 'Web Actors are not implemented yet!';
-
-  final Stream<Message> answerStream =
-      throw 'Web Actors are not implemented yet!';
-
-  void spawn(void Function(Message) entryPoint, Message message) {}
-
-  Future<void> close() async {}
+  Future<void> close() async {
+    receiver.close();
+  }
 }
 
-mixin Sender {
+class Sender {
+  final Worker _worker;
+
+  Sender(this._worker);
+
   void send(Object message) {
-    throw 'Web Actors are not implemented yet!';
+    _worker.postMessage(message);
   }
 }
 
-mixin Receiver {
+class Receiver {
+  final Worker _worker;
+  final Sender sender;
+
+  Receiver(this._worker, this.sender);
+
   static Receiver create() {
-    throw 'Web Actors are not implemented yet!';
+    final worker = Worker(jsWorker);
+    final sender = Sender(worker);
+    return Receiver(worker, sender);
   }
 
-  final Sender sender = throw 'Web Actors are not implemented yet!';
+  Stream<Message> get answerStream {
+    return _worker.onMessage
+        .map((event) => event.data)
+        .cast<Message>()
+        .asBroadcastStream();
+  }
 
   StreamSubscription listen(void Function(Object?)? onData) {
-    throw 'Web Actors are not implemented yet!';
+    return _worker.onMessage.listen(onData);
   }
 
   void close() {
-    throw 'Web Actors are not implemented yet!';
+    _worker.terminate();
   }
+}
+
+void main() {
+  print('RUNNING WORKER');
+  window.onMessage.listen((event) {
+    print('WORKER GOT MESSAGE: ${event.data}');
+  });
 }

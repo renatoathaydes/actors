@@ -3,9 +3,11 @@ import 'dart:async';
 import 'message.dart';
 import 'stub_actor.dart'
     if (dart.library.io) 'isolate/isolate_actor.dart'
-    if (dart.library.html) 'web_worker/web_worker_actor.dart';
+    if (dart.library.js) 'web_worker/web_worker_actor.dart';
 
 final _actorTerminate = 1;
+
+String jsWorker = 'please set the JS Worker script to be able to run Actors in JavaScript!';
 
 class _BoostrapData<M, A> {
   final Sender sender;
