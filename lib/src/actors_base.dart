@@ -51,6 +51,12 @@ typedef HandlerFunction<M, A> = FutureOr<A> Function(M message);
 mixin Handler<M, A> {
   /// Handle a message, optionally sending an answer back to the caller.
   FutureOr<A> handle(M message);
+
+  /// Close this [Handler].
+  /// This method must not be called by application code.
+  /// The `actors` library will call this when an [Actor] that uses this
+  /// [Handler] is closed.
+  FutureOr<void> close() {}
 }
 
 class _HandlerOfFunction<M, A> with Handler<M, A> {
@@ -163,14 +169,22 @@ class Actor<M, A> with Messenger<M, A> {
     return completer.future;
   }
 
+  /// Close this [Actor].
+  ///
+  /// This method awaits for the underlying [Handler] to close,
+  /// but remote errors are not currently propagated to the caller
+  /// (i.e. even if the [Handler] throws an error on close, this method
+  /// will NOT throw).
+  ///
+  /// Notice that when backed by a Dart Isolate, the Isolate will not
+  /// terminate until the [Handler]'s close method completes,
+  /// successfully or not.
   @override
   FutureOr close() async {
     if (_isClosed) return;
     _isClosed = true;
-    final ack = _answerStream
-        .firstWhere((msg) => msg.content == #actor_terminated)
-        .timeout(const Duration(seconds: 5),
-            onTimeout: () => const Message(0, #timeout));
+    final ack =
+        _answerStream.firstWhere((msg) => msg.content == #actor_terminated);
     (await _sender).send(_actorTerminate);
     await ack;
     await _actorImpl.close();
@@ -243,7 +257,11 @@ final _remotePort = Receiver.create();
 void _remote(msg) async {
   if (_actorTerminate == msg) {
     // we can only receive this message once the RemoteState has been initialized
-    _remoteState.sender.send(Message(0, #actor_terminated));
+    try {
+      await _remoteState.remoteHandler.close();
+    } finally {
+      _remoteState.sender.send(Message(0, #actor_terminated));
+    }
     await Future(_remotePort.close);
   } else if (msg is Message) {
     if (!_remoteState.isInitialized) {

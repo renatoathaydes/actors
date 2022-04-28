@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:actors/actors.dart';
+import 'package:path/path.dart' as paths;
 import 'package:test/test.dart';
 
 import 'assertions.dart';
@@ -72,6 +74,26 @@ class CounterActor with Handler<Symbol?, int> {
 
 Future<void> sleepingActor(int message) async {
   await Future.delayed(Duration(milliseconds: message));
+}
+
+class FileWriterHandler with Handler<String, bool> {
+  static File tempFile =
+      File(paths.join(Directory.systemTemp.path, 'writer.txt'));
+
+  @override
+  FutureOr<bool> handle(String message) async {
+    try {
+      await tempFile.writeAsString(message, mode: FileMode.append);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  @override
+  FutureOr<void> close() async {
+    await handle('close');
+  }
 }
 
 class ErrorMethods with Handler<String, Never> {
@@ -160,6 +182,22 @@ void main() {
       expect(await actor.send(#add), equals(6));
       expect(await actor.send(#sub), equals(5));
       expect(await actor.send(#sub), equals(4));
+    });
+  });
+
+  group('Actor Handler is closed', () {
+    late Actor<String, bool> actor;
+    setUp(() async {
+      if (await FileWriterHandler.tempFile.exists()) {
+        await FileWriterHandler.tempFile.delete();
+      }
+      actor = Actor(FileWriterHandler());
+    });
+    test('when the Actor closes', () async {
+      expect(await actor.send('hello-'), isTrue);
+      await actor.close();
+      final fileContents = await FileWriterHandler.tempFile.readAsString();
+      expect(fileContents, equals('hello-close'));
     });
   });
 

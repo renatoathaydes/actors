@@ -144,8 +144,9 @@ class _Group<M, A> {
   FutureOr<A> handle(M message) => _handle(message);
 
   FutureOr<void> close() async {
-    for (final actor in _actors) {
-      await actor.close();
+    final closers = _actors.map((a) => a.close()).toList();
+    for (final closer in closers) {
+      await closer;
     }
   }
 }
