@@ -14,13 +14,17 @@ To start an Actor is very easy. You simply create a `Handler` implementing the l
 Actor's Isolate, then create an `Actor` using it:
 
 ```dart
-class Two with Handler<int, int> {
-  int handle(int n) => n * 2;
+class Accumulator with Handler<int, int> {
+  int _value;
+  
+  Accumulator([int initialValue = 0]): _value = initialValue;
+  
+  int handle(int n) => _value += n;
 }
 
 main() async {
-  final actor = Actor(Two());
-  print(await actor.send(5)); // 10
+  final actor = Actor(Accumulator(6));
+  print(await actor.send(5)); // 11
   await actor.close();
 }
 ```
@@ -109,3 +113,9 @@ messenger.close();
 ```
 
 This makes it possible to write code that works the same whether the message is handled locally or in another `Isolate`.
+
+## More examples
+
+* [basic_example.dart](example/basic_example.dart) (the basics of actors)
+* [actors_example.dart](example/actors_example.dart) (using actors, groups, streams, local)
+* [example-projects/word_count](example-projects/word_count) (utility to count words in files)

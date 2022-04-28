@@ -10,13 +10,14 @@ import 'package:actors/actors.dart';
 /// mixin [Handler] and be instantiated like:
 ///
 /// ```dart
-/// final actor = Actor(StatefulActor());
+/// final actor = Actor(Accumulator());
 /// ```
-class StatefulActor with Handler<void, int> {
-  int invocations = 0;
+class Accumulator with Handler<int, int> {
+  int _value;
 
-  @override
-  Future<int> handle(void message) async => ++invocations;
+  Accumulator([int initialValue = 0]): _value = initialValue;
+
+  int handle(int n) => _value += n;
 }
 
 String withIsolateName(message) => '[${Isolate.current.debugName}] $message';
@@ -33,13 +34,13 @@ void main() async {
 
 Future<Actor> statefulActorExample() async {
   // create an Actor from a Handler
-  final actor = Actor(StatefulActor());
+  final actor = Actor(Accumulator(6));
 
   // send messages to the actor
-  List.generate(41, actor.send);
+  actor.send(26);
 
   // await for an answer from the actor
-  final answer = await actor.send(null);
+  final answer = await actor.send(10);
   print("StatefulActor's final answer is $answer");
 
   return actor;
