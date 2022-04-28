@@ -52,7 +52,9 @@ Stream dynamicStream(value) async* {
 }
 
 class CounterActor with Handler<Symbol?, int> {
-  int count = 0;
+  int count;
+
+  CounterActor([int initialCount = 0]) : count = initialCount;
 
   @override
   int handle(Symbol? message) {
@@ -171,17 +173,21 @@ void main() {
 
   group('Actor can maintain internal state', () {
     late Actor<Symbol?, int> actor;
+    final localCounter = CounterActor(4);
 
     setUp(() {
-      actor = Actor(CounterActor()..count = 4);
+      actor = Actor(localCounter);
     });
 
     test('actor uses internal state to respond', () async {
       expect(await actor.send(null), equals(4));
       expect(await actor.send(#add), equals(5));
+
+      // make sure the local actor instance's state is not affected
+      expect(localCounter.count, equals(4));
+
       expect(await actor.send(#add), equals(6));
       expect(await actor.send(#sub), equals(5));
-      expect(await actor.send(#sub), equals(4));
     });
   });
 
