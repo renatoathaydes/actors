@@ -1,3 +1,7 @@
+## 0.8.3
+
+- added `close` method to `Handler` to facilitate resource management.
+
 ## 0.8.2
 
 - apply workaround to remove Dart bogus warning, see https://github.com/dart-lang/sdk/issues/48090.
