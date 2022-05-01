@@ -1,3 +1,8 @@
+## 0.8.4
+
+- require Dart SDK 2.16.
+- docs improvements.
+
 ## 0.8.3
 
 - added `close` method to `Handler` to facilitate resource management.

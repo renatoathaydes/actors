@@ -1,10 +1,10 @@
 name: actors
 description: Actors Model library for Dart. It is a thin wrapper around Dart's `Isolate` that makes them much easier to use.
-version: 0.8.3
+version: 0.8.4
 homepage: https://github.com/renatoathaydes/actors
 
 environment:
-  sdk: '>=2.15.0 <3.0.0'
+  sdk: '>=2.16.0 <3.0.0'
 
 dependencies: 
 
@@ -12,3 +12,11 @@ dev_dependencies:
   lints: ^1.0.1
   test: ^1.16.5
   path: ^1.8.1
+
+# 'web' will only be supported if/when web_workers are implemented
+platforms:
+  android:
+  ios:
+  linux:
+  macos:
+  windows:
