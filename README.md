@@ -1,6 +1,6 @@
 # actors
 
-[![Dartle CI](https://github.com/renatoathaydes/actors/workflows/Dartle%20CI/badge.svg)](https://github.com/renatoathaydes/actors/actions)
+[![Actors CI](https://github.com/renatoathaydes/actors/workflows/Actors%20Multiplatform%20Build%20and%20Tests/badge.svg)](https://github.com/renatoathaydes/actors/actions)
 [![pub package](https://img.shields.io/pub/v/actors)](https://pub.dev/packages/actors)
 
 `actors` is a library that enables the use of the Actors Model in Dart.
