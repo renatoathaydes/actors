@@ -15,7 +15,7 @@ import 'package:actors/actors.dart';
 class Accumulator with Handler<int, int> {
   int _value;
 
-  Accumulator([int initialValue = 0]): _value = initialValue;
+  Accumulator([int initialValue = 0]) : _value = initialValue;
 
   int handle(int n) => _value += n;
 }
