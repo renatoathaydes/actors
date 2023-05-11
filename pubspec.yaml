@@ -12,6 +12,7 @@ dev_dependencies:
   lints: ^1.0.1
   test: ^1.16.5
   path: ^1.8.1
+  dartle: ^0.22.2
 
 # 'web' will only be supported if/when web_workers are implemented
 platforms:
