@@ -67,7 +67,8 @@ Future actorExample() async {
 
 int times2(int n) {
   // print the name of the current Isolate for debugging purposes
-  stdout.write('${Isolate.current.debugName.padRight(8)} - times2($n)\n');
+  stdout.write(
+      '${Isolate.current.debugName?.padRight(8) ?? 'Isolate'} - times2($n)\n');
   return n * 2;
 }
 

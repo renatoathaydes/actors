@@ -17,6 +17,7 @@ class Accumulator with Handler<int, int> {
 
   Accumulator([int initialValue = 0]) : _value = initialValue;
 
+  @override
   int handle(int n) => _value += n;
 }
 

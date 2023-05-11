@@ -6,7 +6,7 @@ homepage: https://github.com/renatoathaydes/actors
 environment:
   sdk: '>=2.16.0 <3.0.0'
 
-dependencies: 
+dependencies:
 
 dev_dependencies:
   lints: ^1.0.1
