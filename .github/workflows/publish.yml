@@ -19,4 +19,4 @@ jobs:
       - name: Build
         run: dart test
       - name: Publish
-        run: dart pub publish
+        run: dart pub publish --force
