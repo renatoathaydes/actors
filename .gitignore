@@ -16,6 +16,3 @@ doc/api/
 
 # Test reports
 /reports/
-
-# Dartle
-.dartle_tool/

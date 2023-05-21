@@ -17,7 +17,7 @@ jobs:
       - name: Install dependencies
         run: dart pub get
       - name: Test
-        run: dart dartle.dart --disable-cache
+        run: dart test
       - name: Test Report
         uses: dorny/test-reporter@v1
         if: success() || failure()
