@@ -49,6 +49,16 @@ typedef HandlerFunction<M, A> = FutureOr<A> Function(M message);
 /// Classes that might be used as [Actor]s or other [Messenger]s must
 /// implement this mixin.
 mixin Handler<M, A> {
+  /// Initialize the state of this [Handler].
+  ///
+  /// Any state that cannot be sent to another Isolate must be initialized
+  /// in this method rather than in the Actor's constructor.
+  ///
+  /// This method must not be called directly on an [Actor] instance, as the
+  /// framework itself will invoke it on the remote [Isolate] before the actor
+  /// is allowed to handle messages sent to it.
+  FutureOr<void> init() async {}
+
   /// Handle a message, optionally sending an answer back to the caller.
   FutureOr<A> handle(M message);
 
@@ -268,6 +278,7 @@ void _remote(msg) async {
       final data = msg.content as _BoostrapData;
       _remoteState.remoteHandler = data.handler;
       _remoteState.sender = data.sender;
+      await data.handler.init();
       _remoteState.isInitialized = true;
       _remotePort.listen(_remote);
       _remoteState.sender.send(Message(msg.id, _remotePort.sender));

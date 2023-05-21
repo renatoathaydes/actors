@@ -5,6 +5,7 @@ import 'package:actors/actors.dart';
 import 'package:path/path.dart' as paths;
 import 'package:test/test.dart';
 
+import '../example/stateful_actor_example.dart' as ex_stateful;
 import 'assertions.dart';
 
 class IntParserActor with Handler<String, int> {
@@ -189,6 +190,9 @@ void main() {
       expect(await actor.send(#add), equals(6));
       expect(await actor.send(#sub), equals(5));
     });
+
+    // include the stateful actor example in this group
+    ex_stateful.main();
   });
 
   group('Actor Handler is closed', () {

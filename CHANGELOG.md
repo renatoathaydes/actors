@@ -1,3 +1,8 @@
+## Next Release
+
+- require Dart SDK 3.0+.
+- added `init` method to `Handler` to allow for the initialization of non-sendable state.
+
 ## 0.8.4
 
 - require Dart SDK 2.16.

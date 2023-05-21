@@ -10,7 +10,7 @@ and Web Workers (on the Web - TODO) that makes them much easier to use.
 
 ## Actor
 
-To start an Actor is very easy. You simply create a `Handler` implementing the logic to handle messages within the
+To start an Actor is very easy. You create a `Handler` implementing the logic to handle messages within the
 Actor's Isolate, then create an `Actor` using it:
 
 ```dart
@@ -43,7 +43,7 @@ main() async {
 
 As you can see, an `Actor` can send a message back to the caller asynchronously.
 
-They can also send more than one message by returning a `Stream`:
+They can also send more than one message back by returning a `Stream`:
 
 ```dart
 // A Handler that returns a Stream must use a StreamActor, not an Actor.
@@ -64,6 +64,73 @@ main() async {
   await actor.close();
 }
 ```
+
+### Actor state
+
+An actor can safely maintain internal state which cannot be reached by any other actors (as it resides in its own Dart Isolate).
+The state can include anything, even `Stream`s and open sockets, for example.
+
+However, the actor must not **initialize** anything that cannot be **sent** in a message in its constructor.
+
+> That's because, due to limitations of the Dart programming language, an actor gets created both in the local Isolate
+(which is not wanted, but unavoidable) and in its own Isolate (i.e. the _actual actor_). If the actor initialized
+something that cannot be _sent_ in its constructor, the initial message sent to its Isolate would fail to be sent
+because the Actor's `Handler` itself is part of that.
+
+For this reason, it's advisable to initialize the state of an actor in the `Handler`'s `init` method, which has the
+advantage of allowing async calls to be used.
+
+For example, an Actor which wraps a `HttpServer` could be initialized as shown below:
+
+```dart
+class HttpServerActor with Handler<Message, Answer> {
+  late final HttpServer _server;
+  final int port;
+
+  // notice that only "sendable" state can be initialized or provided
+  // in the constructor.
+  HttpServerActor(this.port);
+
+  // this method will only run in the Actor's own Isolate, so we can
+  // create non-sendable state.
+  @override
+  Future<void> init() async {
+    _server = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
+    unawaited(_serveRequests());
+  }
+  
+  // ...
+}
+```
+
+You can see the full example code at [example/stateful_actor_example.dart](example/stateful_actor_example.dart).
+
+If you attempted to initialize the non-sendable field, `_server`, in the constructor, like this:
+
+```dart
+class HttpServerActor with Handler<Message, Answer> {
+  // this won't work unless the Future is only initialized in the Actor's Isolate,
+  // because Future is not Sendable!!
+  final Future<HttpServer> _server;
+  final int port;
+
+  HttpServerActor(this.port)
+      : _server = HttpServer.bind(InternetAddress.loopbackIPv4, port);
+
+  // ...
+}
+```
+
+You would get an error like the following as you tried to create the _local version_ of `HttpServerActor`:
+
+```
+Invalid argument(s): Illegal argument in isolate message: object is unsendable - 
+  Library:'dart:async' Class: _Future@4048458 (see restrictions listed at `SendPort.send()` documentation for more information)
+    <- Instance of 'HttpServerActor' (from file:///programming/projects/actors/example/stateful_actor_example.dart)
+```
+
+This can be hard to understand if you're not aware of how this all works, but hopefully now that you've seen it, if it
+ever happens to you, you'll be able to fix it without too much stress!
 
 ## ActorGroup
 
