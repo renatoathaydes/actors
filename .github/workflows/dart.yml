@@ -8,7 +8,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        sdk: [2.19.0, stable]
+        sdk: [stable]
     steps:
       - uses: actions/checkout@v3
       - uses: dart-lang/setup-dart@v1.0
@@ -17,7 +17,7 @@ jobs:
       - name: Install dependencies
         run: dart pub get
       - name: Test
-        run: dart dartle.dart
+        run: dart dartle.dart --disable-cache
       - name: Test Report
         uses: dorny/test-reporter@v1
         if: success() || failure()

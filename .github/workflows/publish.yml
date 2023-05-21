@@ -17,6 +17,6 @@ jobs:
       - name: Install dependencies
         run: dart pub get
       - name: Build
-        run: dart dartle.dart
+        run: dart dartle.dart --disable-cache
       - name: Publish
         run: dart pub publish
