@@ -291,10 +291,10 @@ void _remote(msg) async {
         while (result is Future) {
           result = await result;
         }
-      } catch (e, _trace) {
+      } catch (e, st) {
         result = e;
         isError = true;
-        trace = _trace;
+        trace = st;
       }
 
       if (!isError && result is Stream) {
@@ -304,10 +304,10 @@ void _remote(msg) async {
           }
           // actor doesn't know we're done if we don't tell it explicitly
           result = #actors_stream_done;
-        } catch (e, _trace) {
+        } catch (e, st) {
           result = e;
           isError = true;
-          trace = _trace;
+          trace = st;
         }
       }
       if (isError && result is Error) {

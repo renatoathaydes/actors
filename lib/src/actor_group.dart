@@ -72,10 +72,10 @@ class MultiHandler<M, A> extends GroupStrategy<M, A> {
       this.handlersPerMessage,
       A Function(List<A>)? combineAnswers})
       : combineAnswers = combineAnswers ?? _firstAnswerIfAllEqual {
-    final _handlersPerMessage = handlersPerMessage;
-    if (_handlersPerMessage != null && minAnswers > _handlersPerMessage) {
+    final handlers = handlersPerMessage;
+    if (handlers != null && minAnswers > handlers) {
       throw ArgumentError(
-          'minAnswers > handlersPerMessage ($minAnswers > $_handlersPerMessage)');
+          'minAnswers > handlersPerMessage ($minAnswers > $handlers)');
     }
   }
 
