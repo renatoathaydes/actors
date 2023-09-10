@@ -143,6 +143,30 @@ class _Group<M, A> {
 
   FutureOr<A> handle(M message) => _handle(message);
 
+  Stream<A> sendToAll(M message) {
+    var completed = 0;
+    final size = _actors.length;
+    final controller = StreamController<A>();
+    for (final actor in _actors) {
+      final answer = actor.send(message);
+      if (answer is Future<A>) {
+        answer.then((value) {
+          completed++;
+          try {
+            controller.add(value);
+          } catch (e, st) {
+            controller.addError(e, st);
+          } finally {
+            if (completed == size) {
+              controller.close();
+            }
+          }
+        });
+      }
+    }
+    return controller.stream;
+  }
+
   FutureOr<void> close() async {
     final closers = _actors.map((a) => a.close()).toList();
     for (final closer in closers) {
@@ -196,6 +220,15 @@ class ActorGroup<M, A> with Messenger<M, A> {
   @override
   FutureOr<A> send(M message) {
     return _group.handle(message);
+  }
+
+  /// Send a message to all members of this group.
+  ///
+  /// The responses from each Actor are emitted by the returned Stream
+  /// in the order in which they are sent, so the order of the Actors
+  /// does not matter.
+  Stream<A> sendToAll(M message) {
+    return _group.sendToAll(message);
   }
 
   @override

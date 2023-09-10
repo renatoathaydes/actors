@@ -11,7 +11,7 @@ class Two with Handler<int, int> {
 }
 
 void main() {
-  group('ActorGroup can handle messages like a single Actor', () {
+  group('ActorGroup basic tests', () {
     late ActorGroup<int, int> actorGroup;
 
     setUp(() {
@@ -26,6 +26,11 @@ void main() {
       expect(await actorGroup.send(2), equals(4));
       expect(await actorGroup.send(10), equals(20));
       expect(await actorGroup.send(25), equals(50));
+    });
+
+    test('ActorGroup can send same message to all members', () async {
+      expect(
+          await actorGroup.sendToAll(4).toList(), equals([8, 8, 8, 8, 8, 8]));
     });
   });
   group('ActorGroup RoundRobin Strategy', () {
