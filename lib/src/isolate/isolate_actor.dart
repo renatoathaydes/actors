@@ -23,6 +23,10 @@ class ActorImpl {
     _iso = Isolate.spawn(entryPoint, message, debugName: _generateName());
   }
 
+  void Function(Object?) createSender() {
+    return receiver.sendPort.send;
+  }
+
   Future<void> close() async {
     receiver.close();
     (await _iso).kill(priority: Isolate.immediate);
@@ -54,6 +58,8 @@ class Sender {
 class Receiver {
   final ReceivePort _receivePort;
   final Sender sender;
+
+  SendPort get sendPort => _receivePort.sendPort;
 
   static Receiver create() {
     final receivePort = ReceivePort();

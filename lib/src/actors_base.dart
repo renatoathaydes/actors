@@ -139,6 +139,13 @@ class Actor<M, A> with Messenger<M, A> {
   /// Creates an [Actor] based on a handler function.
   Actor.of(HandlerFunction<M, A> handler) : this(asHandler(handler));
 
+  /// Get a sender function that allows sending messages to this [Actor],
+  /// but not waiting for a response.
+  ///
+  /// The returned function can be _sent_ to another Actor, unlike the Actor
+  /// itself - that's the main purpose of this sender.
+  void Function(M) get sender => _actorImpl.createSender();
+
   void _validateGenericType() {
     if (A.toString().startsWith('Stream<')) {
       throw StateError(

@@ -21,6 +21,8 @@ class ActorImpl {
   void spawn(void Function(Message) entryPoint, Message message) {}
 
   Future<void> close() async {}
+
+  void Function(Object?) createSender() => throw Exception();
 }
 
 mixin Sender {

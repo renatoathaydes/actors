@@ -21,6 +21,9 @@ class ActorImpl {
 
   void spawn(void Function(Message) entryPoint, Message message) {}
 
+  void Function(Object?) createSender() =>
+      throw 'Web Actors are not implemented yet!';
+
   Future<void> close() async {}
 }
 

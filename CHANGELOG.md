@@ -1,5 +1,8 @@
 ## Next Release
 
+- added `sender` to `Actor` so that its sender function can be sent to another Actor.
+- added method `sendToAll` to `ActorGroup`.
+
 ## 0.9.0
 
 - require Dart SDK 3.0+.
