@@ -33,10 +33,12 @@
 /// equivalent to a simple async function).
 library actors;
 
-import 'src/actors_base.dart';
 import 'src/actor_group.dart';
+import 'src/actors_base.dart';
 import 'src/local_messenger.dart';
 
-export 'src/actors_base.dart';
 export 'src/actor_group.dart';
+export 'src/actors_base.dart';
+export 'src/answer_handler.dart' show MessengerStreamBroken;
 export 'src/local_messenger.dart';
+export 'src/sendable.dart' show Sendable;

@@ -14,21 +14,16 @@ class ActorImpl {
 
   final Sender sender = throw 'Web Actors are not implemented yet!';
 
-  final Receiver receiver = throw 'Web Actors are not implemented yet!';
-
   final Stream<Message> answerStream =
       throw 'Web Actors are not implemented yet!';
 
   void spawn(void Function(Message) entryPoint, Message message) {}
 
-  void Function(Object?) createSender() =>
-      throw 'Web Actors are not implemented yet!';
-
   Future<void> close() async {}
 }
 
 mixin Sender {
-  void send(Object message) {
+  void send(Object? message) {
     throw 'Web Actors are not implemented yet!';
   }
 }
@@ -43,6 +38,8 @@ mixin Receiver {
   StreamSubscription listen(void Function(Object?)? onData) {
     throw 'Web Actors are not implemented yet!';
   }
+
+  Future get first => throw 'Web Actors are not implemented yet!';
 
   void close() {
     throw 'Web Actors are not implemented yet!';

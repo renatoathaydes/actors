@@ -1,3 +1,4 @@
+@Timeout(Duration(seconds: 1))
 import 'dart:async';
 import 'dart:io';
 
@@ -19,14 +20,13 @@ class TryIntParserActor with Handler<String, int?> {
 }
 
 Object handleDynamic(message) {
-  switch (message.runtimeType) {
-    case String:
-      return 'string';
-    case int:
-      return 'integer';
-    default:
-      return -1;
-  }
+  return switch (message) {
+    String _ => 'string',
+    int _ => 'integer',
+    AddSenderFunction fun => fun(),
+    Function fun => fun(),
+    _ => -1
+  };
 }
 
 Stream<int> handleTyped(String message) async* {
@@ -125,6 +125,16 @@ class ErrorMethods with Handler<String, Never> {
   }
 }
 
+class AddSenderFunction {
+  final Sendable<Symbol?, int> _sender;
+
+  AddSenderFunction(this._sender);
+
+  Future<int> call() {
+    return _sender.send(#add);
+  }
+}
+
 void main() {
   group('Typed Actor can run in isolate', () {
     late Actor<String, int> actor;
@@ -169,6 +179,20 @@ void main() {
       expect(await actor.send(10), equals('integer'));
       expect(await actor.send('text'), equals('string'));
       expect(await actor.send(true), equals(-1));
+    });
+
+    test('can call sent function', () async {
+      expect(await actor.send(() => 24), equals(24));
+    });
+
+    test('can send Sendable to Actor', () async {
+      final thirdActor = Actor(CounterActor(9));
+      final thirdSender = await thirdActor.toSendable();
+      try {
+        expect(await actor.send(AddSenderFunction(thirdSender)), equals(10));
+      } finally {
+        await thirdActor.close();
+      }
     });
   });
 
@@ -342,7 +366,7 @@ void main() {
             // needs to contain the function that threw in the remote Isolate
             RegExp('.*handleTyped \\(file:.*'),
             // and the package and function that handles remote messages
-            RegExp('.*_remote \\(package:actors.*'),
+            RegExp('.*_sendAnswer \\(package:actors.*'),
           ]));
     }, timeout: const Timeout(Duration(minutes: 5)));
 

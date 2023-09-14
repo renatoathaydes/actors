@@ -1,5 +1,9 @@
-class Message {
-  final int id;
+import 'stub_actor.dart'
+    if (dart.library.io) 'isolate/isolate_actor.dart'
+    if (dart.library.html) 'web_worker/web_worker_actor.dart';
+
+final class Message {
+  final num id;
   final Object? content;
   final String? stackTraceString;
 
@@ -10,4 +14,24 @@ class Message {
       : null;
 
   bool get isError => stackTraceString != null;
+
+  @override
+  String toString() {
+    if (isError) {
+      return 'Message{id=$id, error=$content, stackTrace=$stackTraceString}';
+    }
+    return 'Message{id=$id, content: $content}';
+  }
+}
+
+final class OneOffMessage {
+  final Sender sender;
+  final Object? content;
+
+  const OneOffMessage(this.sender, this.content);
+
+  @override
+  String toString() {
+    return 'OneOffMessage{sender: $sender, content: $content}';
+  }
 }

@@ -3,14 +3,14 @@ import 'dart:async';
 import 'package:actors/actors.dart';
 import 'package:test/test.dart';
 
-class ActorHasActor with Handler<int, void> {
-  final void Function(int) otherActor;
+class ActorHasActor with Handler<int, int> {
+  final Sendable<int, int> otherActor;
 
   ActorHasActor(this.otherActor);
 
   @override
-  FutureOr<void> handle(int message) {
-    otherActor(message + 1);
+  Future<int> handle(int message) async {
+    return otherActor.send(message + 1);
   }
 }
 
@@ -28,33 +28,22 @@ void main() {
   group('Actor can receive handle to another Actor and use it to send messages',
       () {
     late Actor<int, int> mainActor;
-    late Actor<int, void> otherActor;
+    late Actor<int, int> otherActor;
 
-    setUp(() {
+    setUp(() async {
       mainActor = Actor(MainActor());
-      otherActor = Actor(ActorHasActor(mainActor.sender));
+      otherActor = Actor(ActorHasActor(await mainActor.toSendable()));
     });
 
-    tearDown(() {});
+    tearDown(() {
+      mainActor.close();
+      otherActor.close();
+    });
 
     test('can send msg to actor that sends msg to another actor', () async {
-      await otherActor.send(2);
-      await otherActor.send(4);
-      // there's no way to wait for the actor-to-actor msg to arrive.
-      waitUntilEquals(
-          () async => await mainActor.send(0), 8, Duration(milliseconds: 500));
-    });
+      expect(await otherActor.send(2), equals(3));
+      expect(await otherActor.send(4), equals(8));
+      expect(await mainActor.send(1), equals(9));
+    }, timeout: const Timeout(Duration(seconds: 1)));
   });
-}
-
-Future<void> waitUntilEquals<T>(
-    Future<T> Function() condition, T expected, Duration timeout) async {
-  final limit = DateTime.now().add(timeout);
-  T current;
-  while ((current = await condition()) != expected) {
-    await Future.delayed(Duration(milliseconds: 50));
-    if (DateTime.now().isAfter(limit)) {
-      throw Exception('not equal to $expected: $current (timeout)');
-    }
-  }
 }

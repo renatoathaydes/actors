@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:math' show pow;
 
+import 'answer_handler.dart';
 import 'message.dart';
+import 'sendable.dart';
 import 'stub_actor.dart'
     if (dart.library.io) 'isolate/isolate_actor.dart'
     if (dart.library.html) 'web_worker/web_worker_actor.dart';
@@ -31,15 +34,6 @@ class RemoteErrorException implements Exception {
 
   @override
   String toString() => 'RemoteErrorException{$errorAsString}';
-}
-
-/// An Exception that indicates that the channel of communication with a
-/// [Messenger] has been broken.
-///
-/// This typically occurs when an [Actor] is closed while it still has pending
-/// messages being processed.
-class MessengerStreamBroken implements Exception {
-  const MessengerStreamBroken();
 }
 
 typedef HandlerFunction<M, A> = FutureOr<A> Function(M message);
@@ -92,7 +86,7 @@ mixin Messenger<M, A> {
   ///
   /// After this method is called, this Messenger should no longer respond
   /// to any messages. It's an error to send messages to a closed Messenger.
-  FutureOr close();
+  FutureOr<void> close();
 }
 
 /// An [Actor] is an entity that can send messages to a [Handler]
@@ -117,7 +111,7 @@ class Actor<M, A> with Messenger<M, A> {
   late final ActorImpl _actorImpl;
   late final Stream<Message> _answerStream;
   late final Future<Sender> _sender;
-  int _currentId = -2 ^ 30;
+  num _currentId = -pow(2, 16);
   bool _isClosed = false;
 
   /// Creates an [Actor] that handles messages with the given [Handler].
@@ -139,12 +133,11 @@ class Actor<M, A> with Messenger<M, A> {
   /// Creates an [Actor] based on a handler function.
   Actor.of(HandlerFunction<M, A> handler) : this(asHandler(handler));
 
-  /// Get a sender function that allows sending messages to this [Actor],
-  /// but not waiting for a response.
+  /// A handle to this [Actor] which can be sent to other actors.
   ///
-  /// The returned function can be _sent_ to another Actor, unlike the Actor
-  /// itself - that's the main purpose of this sender.
-  void Function(M) get sender => _actorImpl.createSender();
+  /// Unlike an [Actor], a [Sendable] cannot be closed, hence only the original
+  /// creator of an [Actor] is able to close it.
+  Future<Sendable<M, A>> toSendable() async => SendableImpl(await _sender);
 
   void _validateGenericType() {
     if (A.toString().startsWith('Stream<')) {
@@ -153,7 +146,7 @@ class Actor<M, A> with Messenger<M, A> {
     }
   }
 
-  Future<Sender> _waitForRemotePort(int id) {
+  Future<Sender> _waitForRemotePort(num id) {
     return _answerStream
         .firstWhere((answer) => (answer.id == id))
         .then((msg) => msg.content as Sender);
@@ -170,20 +163,9 @@ class Actor<M, A> with Messenger<M, A> {
   @override
   FutureOr<A> send(M message) {
     final id = _currentId++;
-    final completer = Completer<A>();
     final futureAnswer = _answerStream.firstWhere((m) => m.id == id);
     _sender.then((s) => s.send(Message(id, message)));
-    futureAnswer.then((Message answer) {
-      if (answer.isError) {
-        // if the answer is an error, its content will never be null
-        completer.completeError(answer.content!, answer.stacktrace);
-      } else {
-        completer.complete(answer.content as A);
-      }
-    }, onError: (e, StackTrace stackTrace) {
-      completer.completeError(const MessengerStreamBroken(), stackTrace);
-    });
-    return completer.future;
+    return handleAnswer(futureAnswer);
   }
 
   /// Close this [Actor].
@@ -197,7 +179,7 @@ class Actor<M, A> with Messenger<M, A> {
   /// terminate until the [Handler]'s close method completes,
   /// successfully or not.
   @override
-  FutureOr close() async {
+  FutureOr<void> close() async {
     if (_isClosed) return;
     _isClosed = true;
     final ack =
@@ -285,47 +267,52 @@ void _remote(msg) async {
       final data = msg.content as _BoostrapData;
       _remoteState.remoteHandler = data.handler;
       _remoteState.sender = data.sender;
+      // TODO try and send error if necessary
       await data.handler.init();
       _remoteState.isInitialized = true;
       _remotePort.listen(_remote);
       _remoteState.sender.send(Message(msg.id, _remotePort.sender));
     } else {
-      Object? result;
-      StackTrace? trace;
-      var isError = false;
-      try {
-        result = _remoteState.remoteHandler.handle(msg.content);
-        while (result is Future) {
-          result = await result;
-        }
-      } catch (e, st) {
-        result = e;
-        isError = true;
-        trace = st;
-      }
-
-      if (!isError && result is Stream) {
-        try {
-          await for (var item in result) {
-            _remoteState.sender.send(Message(msg.id, item));
-          }
-          // actor doesn't know we're done if we don't tell it explicitly
-          result = #actors_stream_done;
-        } catch (e, st) {
-          result = e;
-          isError = true;
-          trace = st;
-        }
-      }
-      if (isError && result is Error) {
-        // Error has a stacktrace which we cannot send back, so turn the error
-        // into an String representation of it so we can send it
-        result = RemoteErrorException('$result');
-      }
-      _remoteState.sender
-          .send(Message(msg.id, result, stackTraceString: trace?.toString()));
+      final (result, trace, isError) = await _handle(msg.content);
+      _sendAnswer(_remoteState.sender, msg.id, result, trace, isError);
     }
+  } else if (msg is OneOffMessage) {
+    final (result, trace, isError) = await _handle(msg.content);
+    _sendAnswer(msg.sender, -1, result, trace, isError);
   } else {
     throw StateError('Unexpected message: $msg');
   }
+}
+
+Future<(Object? result, StackTrace? trace, bool isError)> _handle(
+    Object? messageContent) async {
+  try {
+    final result = await _remoteState.remoteHandler.handle(messageContent);
+    return (result, null, false);
+  } catch (e, st) {
+    return (e, st, true);
+  }
+}
+
+void _sendAnswer(Sender sender, num id, Object? result, StackTrace? trace,
+    bool isError) async {
+  if (!isError && result is Stream) {
+    try {
+      await for (var item in result) {
+        sender.send(Message(id, item));
+      }
+      // actor doesn't know we're done if we don't tell it explicitly
+      result = #actors_stream_done;
+    } catch (e, st) {
+      result = e;
+      isError = true;
+      trace = st;
+    }
+  }
+  if (isError && result is Error) {
+    // Error has a stacktrace which we cannot send back, so turn the error
+    // into an String representation of it so we can send it
+    result = RemoteErrorException('$result');
+  }
+  sender.send(Message(id, result, stackTraceString: trace?.toString()));
 }

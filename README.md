@@ -74,8 +74,8 @@ However, the actor must not **initialize** anything that cannot be **sent** in a
 
 > That's because, due to limitations of the Dart programming language, an actor gets created both in the local Isolate
 (which is not wanted, but unavoidable) and in its own Isolate (i.e. the _actual actor_). If the actor initialized
-something that cannot be _sent_ in its constructor, the initial message sent to its Isolate would fail to be sent
-because the Actor's `Handler` itself is part of that.
+> something that cannot be _sent_ in its constructor, the initial message sent to its Isolate would fail to be sent
+> because the Actor's `Handler` itself is part of that.
 
 For this reason, it's advisable to initialize the state of an actor in the `Handler`'s `init` method, which has the
 advantage of allowing async calls to be used.
@@ -131,6 +131,14 @@ Invalid argument(s): Illegal argument in isolate message: object is unsendable -
 
 This can be hard to understand if you're not aware of how this all works, but hopefully now that you've seen it, if it
 ever happens to you, you'll be able to fix it without too much stress!
+
+To send an Actor to another Actor is not possible directly, but you can send its `toSendable()` function.
+
+> See the [inter_actor_test](test/inter_actor_test.dart) test for an example where an Actor's sender function
+> is given to another Actor via its constructor.
+
+This enables a common pattern where many actors are given a reference to another actor which can aggregate their
+results in one place.
 
 ## ActorGroup
 

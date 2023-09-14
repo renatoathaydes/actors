@@ -7,28 +7,25 @@ class ActorImpl {
   late Future<Isolate> _iso;
 
   final Stream<Message> answerStream;
-  final Sender sender;
-  final Receiver receiver;
+  final Receiver _receiver;
 
-  ActorImpl(this.answerStream, this.sender, this.receiver);
+  Sender get sender => _receiver.sender;
+
+  ActorImpl(this.answerStream, this._receiver);
 
   static ActorImpl create() {
     final receiver = Receiver.create();
     final answerStream =
         receiver._receivePort.cast<Message>().asBroadcastStream();
-    return ActorImpl(answerStream, receiver.sender, receiver);
+    return ActorImpl(answerStream, receiver);
   }
 
   void spawn(void Function(Message) entryPoint, Message message) {
     _iso = Isolate.spawn(entryPoint, message, debugName: _generateName());
   }
 
-  void Function(Object?) createSender() {
-    return receiver.sendPort.send;
-  }
-
   Future<void> close() async {
-    receiver.close();
+    _receiver.close();
     (await _iso).kill(priority: Isolate.immediate);
   }
 }
@@ -46,12 +43,12 @@ String _generateName() {
 }
 
 class Sender {
-  final SendPort _sendPort;
+  final SendPort sendPort;
 
-  Sender(this._sendPort);
+  Sender(this.sendPort);
 
-  void send(Object message) {
-    _sendPort.send(message);
+  void send(Object? message) {
+    sendPort.send(message);
   }
 }
 
@@ -62,7 +59,7 @@ class Receiver {
   SendPort get sendPort => _receivePort.sendPort;
 
   static Receiver create() {
-    final receivePort = ReceivePort();
+    final receivePort = ReceivePort(Isolate.current.debugName ?? '');
     return Receiver(receivePort, Sender(receivePort.sendPort));
   }
 
@@ -75,4 +72,6 @@ class Receiver {
   StreamSubscription listen(void Function(Object?)? onData) {
     return _receivePort.listen(onData);
   }
+
+  Future get first => _receivePort.first;
 }
