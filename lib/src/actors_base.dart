@@ -8,8 +8,6 @@ import 'stub_actor.dart'
     if (dart.library.io) 'isolate/isolate_actor.dart'
     if (dart.library.html) 'web_worker/web_worker_actor.dart';
 
-final _actorTerminate = 1;
-
 class _BoostrapData<M, A> {
   final Sender sender;
   final Handler<M, A> handler;
@@ -184,7 +182,7 @@ class Actor<M, A> with Messenger<M, A> {
     _isClosed = true;
     final ack =
         _answerStream.firstWhere((msg) => msg.content == #actor_terminated);
-    (await _sender).send(_actorTerminate);
+    (await _sender).send(TerminateActor.singleton);
     await ack;
     await _actorImpl.close();
   }
@@ -253,34 +251,33 @@ class _RemoteState {
 final _remoteState = _RemoteState();
 final _remotePort = Receiver.create();
 
-void _remote(msg) async {
-  if (_actorTerminate == msg) {
-    // we can only receive this message once the RemoteState has been initialized
-    try {
-      await _remoteState.remoteHandler.close();
-    } finally {
-      _remoteState.sender.send(Message(0, #actor_terminated));
-    }
-    await Future(_remotePort.close);
-  } else if (msg is Message) {
-    if (!_remoteState.isInitialized) {
-      final data = msg.content as _BoostrapData;
-      _remoteState.remoteHandler = data.handler;
-      _remoteState.sender = data.sender;
-      // TODO try and send error if necessary
-      await data.handler.init();
-      _remoteState.isInitialized = true;
-      _remotePort.listen(_remote);
-      _remoteState.sender.send(Message(msg.id, _remotePort.sender));
-    } else {
+void _remote(AnyMessage msg) async {
+  switch (msg) {
+    case Message msg:
+      if (!_remoteState.isInitialized) {
+        final data = msg.content as _BoostrapData;
+        _remoteState.remoteHandler = data.handler;
+        _remoteState.sender = data.sender;
+        // TODO try and send error if necessary
+        await data.handler.init();
+        _remoteState.isInitialized = true;
+        _remotePort.listen(_remote);
+        _remoteState.sender.send(Message(msg.id, _remotePort.sender));
+      } else {
+        final (result, trace, isError) = await _handle(msg.content);
+        _sendAnswer(_remoteState.sender, msg.id, result, trace, isError);
+      }
+    case OneOffMessage msg:
       final (result, trace, isError) = await _handle(msg.content);
-      _sendAnswer(_remoteState.sender, msg.id, result, trace, isError);
-    }
-  } else if (msg is OneOffMessage) {
-    final (result, trace, isError) = await _handle(msg.content);
-    _sendAnswer(msg.sender, -1, result, trace, isError);
-  } else {
-    throw StateError('Unexpected message: $msg');
+      _sendAnswer(msg.sender, -1, result, trace, isError);
+    case TerminateActor.singleton:
+      // we can only receive this message once the RemoteState has been initialized
+      try {
+        await _remoteState.remoteHandler.close();
+      } finally {
+        _remoteState.sender.send(const Message(0, #actor_terminated));
+      }
+      await Future(_remotePort.close);
   }
 }
 

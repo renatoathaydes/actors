@@ -35,7 +35,7 @@ class ActorImpl {
 }
 
 mixin Sender {
-  void send(Object? message) {}
+  void send(AnyMessage message) {}
 }
 
 mixin Receiver {
@@ -47,7 +47,7 @@ mixin Receiver {
 
   Future get first => throw Exception();
 
-  StreamSubscription listen(void Function(Object?)? onData) {
+  StreamSubscription listen(void Function(AnyMessage) onData) {
     throw Exception();
   }
 

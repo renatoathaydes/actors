@@ -2,7 +2,13 @@ import 'stub_actor.dart'
     if (dart.library.io) 'isolate/isolate_actor.dart'
     if (dart.library.html) 'web_worker/web_worker_actor.dart';
 
-final class Message {
+sealed class AnyMessage {}
+
+enum TerminateActor implements AnyMessage {
+  singleton;
+}
+
+final class Message implements AnyMessage {
   final num id;
   final Object? content;
   final String? stackTraceString;
@@ -24,7 +30,7 @@ final class Message {
   }
 }
 
-final class OneOffMessage {
+final class OneOffMessage implements AnyMessage {
   final Sender sender;
   final Object? content;
 

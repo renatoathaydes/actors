@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../message.dart';
+import '../sendable.dart';
 
 /// This is a non-exported type that stubs the needed methods to implement
 /// an Actor.
@@ -20,10 +21,13 @@ class ActorImpl {
   void spawn(void Function(Message) entryPoint, Message message) {}
 
   Future<void> close() async {}
+
+  Sendable<M, A> createSendable<M, A>() =>
+      throw 'Web Actors are not implemented yet!';
 }
 
 mixin Sender {
-  void send(Object? message) {
+  void send(AnyMessage message) {
     throw 'Web Actors are not implemented yet!';
   }
 }
@@ -35,7 +39,7 @@ mixin Receiver {
 
   final Sender sender = throw 'Web Actors are not implemented yet!';
 
-  StreamSubscription listen(void Function(Object?)? onData) {
+  StreamSubscription listen(void Function(AnyMessage) onData) {
     throw 'Web Actors are not implemented yet!';
   }
 

@@ -47,7 +47,7 @@ class Sender {
 
   Sender(this.sendPort);
 
-  void send(Object? message) {
+  void send(AnyMessage message) {
     sendPort.send(message);
   }
 }
@@ -69,9 +69,15 @@ class Receiver {
     _receivePort.close();
   }
 
-  StreamSubscription listen(void Function(Object?)? onData) {
-    return _receivePort.listen(onData);
+  StreamSubscription listen(void Function(AnyMessage) onData) {
+    return _receivePort.listen(onData.takingAny);
   }
 
   Future get first => _receivePort.first;
+}
+
+extension on void Function(AnyMessage) {
+  void takingAny(dynamic msg) {
+    this.call(msg);
+  }
 }

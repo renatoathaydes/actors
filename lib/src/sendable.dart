@@ -1,5 +1,4 @@
 import 'answer_handler.dart';
-
 import 'message.dart';
 import 'stub_actor.dart'
     if (dart.library.io) 'isolate/isolate_actor.dart'
@@ -21,6 +20,7 @@ class SendableImpl<M, A> with Sendable<M, A> {
 
   SendableImpl(this._sender);
 
+  @override
   Future<A> send(M message) async {
     final receiver = Receiver.create();
     final answer = receiver.first;
