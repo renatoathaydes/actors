@@ -143,6 +143,12 @@ obtained by calling `toSendable()` (unfortunately, this does not currently work 
 This enables a common pattern where many actors are given a reference to another actor which can aggregate their
 results in one place.
 
+Notice that using a `Sendable` to send messages has a small performance overhead when compared to a plain `Actor`.
+For the [big_messages](benchmark/big_messages.dart) benchmark, `Actor` messages' round trip is measured at
+~`21us` VS `28us` for `Sendable` (using a Macbook Air from 2019).
+
+Actors themselves perform identically to using plain `Isolate`s directly.
+
 ## ActorGroup
 
 `ActorGroup` allows several `Actor` instances to be grouped together, all based on the same `Handler` implementation,

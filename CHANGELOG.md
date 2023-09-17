@@ -1,6 +1,6 @@
 ## Next Release
 
-- added `sender` to `Actor` so that its sender function can be sent to another Actor.
+- added `toSendable` to `Actor` so that the Actor can be sent to another Actor via its `Sendable` object.
 - added method `sendToAll` to `ActorGroup`.
 
 ## 0.9.0
