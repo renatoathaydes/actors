@@ -70,14 +70,8 @@ class Receiver {
   }
 
   StreamSubscription listen(void Function(AnyMessage) onData) {
-    return _receivePort.listen(onData.takingAny);
+    return _receivePort.listen((d) => onData(d));
   }
 
   Future get first => _receivePort.first;
-}
-
-extension on void Function(AnyMessage) {
-  void takingAny(dynamic msg) {
-    this.call(msg);
-  }
 }
