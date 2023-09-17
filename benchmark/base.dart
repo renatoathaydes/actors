@@ -15,7 +15,7 @@ abstract class MessageBench<M, A> extends AsyncBenchmarkBase {
 
   M nextMessage();
 
-  void checkFinalMessage(A answer);
+  FutureOr<void> checkFinalMessage(A answer);
 
   FutureOr<A> _sendMessage() {
     final message = nextMessage();
@@ -37,6 +37,6 @@ abstract class MessageBench<M, A> extends AsyncBenchmarkBase {
   Future<void> teardown() async {
     final answer = await _sendMessage();
     await stop();
-    checkFinalMessage(answer);
+    await checkFinalMessage(answer);
   }
 }

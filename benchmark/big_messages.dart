@@ -52,7 +52,7 @@ final class _BigMessageHandler with Handler<_BigMessage, _BigMessage> {
   _BigMessageHandler([this._count = 0]);
 
   @override
-  _BigMessage handle(_BigMessage message) {
+  Future<_BigMessage> handle(_BigMessage message) async {
     _count++;
     final count = message.count + _count;
     return _BigMessage(message.numbers.map((e) => e + 1).toList(),
@@ -69,8 +69,8 @@ abstract class _BigMessageBench extends MessageBench<_BigMessage, _BigMessage> {
   }
 
   @override
-  void checkFinalMessage(_BigMessage message) {
-    final expectedMessage = _BigMessageHandler(sentMessages - 1)
+  Future<void> checkFinalMessage(_BigMessage message) async {
+    final expectedMessage = await _BigMessageHandler(sentMessages - 1)
         .handle(_BigMessage.next(sentMessages - 1));
     if (expectedMessage != message) {
       throw Exception('Expected final message to be $expectedMessage'
@@ -83,13 +83,14 @@ final ReceivePort _isolateReceivePort = ReceivePort();
 SendPort? _isolateResponder;
 final _isolateCounter = _BigMessageHandler();
 
-void _isolateMain(message) {
+void _isolateMain(message) async {
   if (_isolateResponder == null) {
     _isolateReceivePort.listen(_isolateMain);
     _isolateResponder = message;
     _isolateResponder!.send(_isolateReceivePort.sendPort);
   } else {
-    final answer = _isolateCounter.handle(message);
+    // not doing error handling intentionally to check absolute minimal overhead
+    final answer = await _isolateCounter.handle(message);
     _isolateResponder!.send(answer);
   }
 }
