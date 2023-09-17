@@ -132,7 +132,10 @@ Invalid argument(s): Illegal argument in isolate message: object is unsendable -
 This can be hard to understand if you're not aware of how this all works, but hopefully now that you've seen it, if it
 ever happens to you, you'll be able to fix it without too much stress!
 
-To send an Actor to another Actor is not possible directly, but you can send its `toSendable()` function.
+### Sending an Actor to another Actor
+
+To send an Actor to another Actor is not possible directly, but you can send its `Sendable` object, which can be
+obtained by calling `toSendable()` (unfortunately, this does not currently work for `StreamActor`).
 
 > See the [inter_actor_test](test/inter_actor_test.dart) test for an example where an Actor's sender function
 > is given to another Actor via its constructor.
