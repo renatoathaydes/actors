@@ -197,24 +197,35 @@ class ActorGroup<M, A> with Messenger<M, A> {
   ///
   /// Use the [of] constructor to wrap a function directly.
   ActorGroup(Handler<M, A> handler,
+      {int size = 6, GroupStrategy<M, A>? strategy})
+      : this.create(() => handler, size: size, strategy: strategy);
+
+  /// Creates an [ActorGroup] with the given [size] that handles messages
+  /// using the given [Handler].
+  ///
+  /// A [GroupStrategy] may be provided, defaulting to [RoundRobin].
+  ///
+  /// Use the [of] constructor to wrap a function directly.
+  ActorGroup.create(Handler<M, A> Function() createHandler,
       {this.size = 6, GroupStrategy<M, A>? strategy})
-      : _group =
-            _Group(_buildActors(size, handler), strategy ?? RoundRobin<M, A>());
+      : _group = _Group(
+            _buildActors(size, createHandler), strategy ?? RoundRobin<M, A>());
 
   /// Creates an [ActorGroup] with the given [size], based on a handler function.
   ///
   /// A [GroupStrategy] may be provided, defaulting to [RoundRobin].
   ActorGroup.of(HandlerFunction<M, A> handlerFunction,
       {int size = 6, GroupStrategy<M, A>? strategy})
-      : this(asHandler(handlerFunction), size: size, strategy: strategy);
+      : this.create(asHandler(handlerFunction), size: size, strategy: strategy);
 
-  static List<Messenger<M, A>> _buildActors<M, A>(
-      int size, Handler<M, A> handler) {
+  static List<Messenger<M, A>> _buildActors<M, A>(int size,
+      Handler<M, A> Function() createHandler) {
     if (size < 1) {
       throw ArgumentError.value(size, 'size', 'must be a positive number');
     }
 
-    return List.generate(size, (_) => Actor(handler), growable: false);
+    return List.generate(size, (_) => Actor.create(createHandler),
+        growable: false);
   }
 
   @override

@@ -55,7 +55,7 @@ Future actorExample() async {
   stdout.writeln('Actor example');
 
   // Create an Actor from a Handler
-  final actor = Actor(Counter());
+  final actor = Actor.create(Counter.new);
   print(await actor.send(1)); // 1
   print(await actor.send(1)); // 2
   print(await actor.send(6)); // 8
@@ -107,7 +107,7 @@ Future streamActorExample() async {
   stdout.writeln('StreamActor example');
 
   // Create an StreamActor from a Handler that returns Stream.
-  final actor = StreamActor(StreamGenerator());
+  final actor = StreamActor.create(StreamGenerator.new);
   final stream = actor.send(2);
   await for (final item in stream) {
     print(item); // 0, 1
@@ -126,7 +126,7 @@ Future localMessengerExample() async {
   await messenger.close();
 
   // or it can be an Actor
-  messenger = Actor(Counter());
+  messenger = Actor.create(Counter.new);
   print(await messenger.send(3)); // 3
   await messenger.close();
 

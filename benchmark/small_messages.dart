@@ -120,7 +120,7 @@ final class _SmallMessageActorBench extends _SmallMessageBench {
 
   @override
   Future<void> setup() async {
-    _actor = Actor(_CounterActor());
+    _actor = Actor.create(_CounterActor.new);
   }
 
   @override

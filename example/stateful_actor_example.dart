@@ -54,8 +54,8 @@ void main() {
   tearDown(() => httpActor?.close());
 
   test('can start an actor which maintains non-sendable state', () async {
-    final port = 8081;
-    httpActor = Actor(HttpServerActor(port));
+    const port = 8081;
+    httpActor = Actor.create(() => HttpServerActor(port));
 
     // send a request with some header
     final client = HttpClient();

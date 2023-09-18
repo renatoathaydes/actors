@@ -152,7 +152,7 @@ final class _BigMessageActorBench extends _BigMessageBench {
 
   @override
   Future<void> setup() async {
-    _actor = Actor(_BigMessageHandler());
+    _actor = Actor.create(_BigMessageHandler.new);
   }
 
   @override

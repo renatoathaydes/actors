@@ -156,7 +156,7 @@ void main() {
     late Actor<String, int?> actor;
 
     setUp(() {
-      actor = Actor(TryIntParserActor());
+      actor = Actor.create(TryIntParserActor.new);
     });
 
     test('can handle messages async', () async {
@@ -225,7 +225,7 @@ void main() {
       if (await FileWriterHandler.tempFile.exists()) {
         await FileWriterHandler.tempFile.delete();
       }
-      actor = Actor(FileWriterHandler());
+      actor = Actor.create(FileWriterHandler.new);
     });
     test('when the Actor closes', () async {
       expect(await actor.send('hello-'), isTrue);
@@ -238,7 +238,7 @@ void main() {
   group('Actors problems', () {
     late Actor<String, void> actor;
     setUp(() {
-      actor = Actor(ErrorMethods());
+      actor = Actor.create(ErrorMethods.new);
     });
     test('Exceptions are propagated to caller', () async {
       await expectToThrow(

@@ -18,9 +18,10 @@ class WordCount with Handler<File, int> {
 Messenger<File, int> create(String option) {
   switch (option) {
     case "group":
-      return ActorGroup(WordCount(), size: Platform.numberOfProcessors);
+      return ActorGroup.create(WordCount.new,
+          size: Platform.numberOfProcessors);
     case "actor":
-      return Actor(WordCount());
+      return Actor.create(WordCount.new);
     case "local":
       return LocalMessenger(WordCount());
     default:

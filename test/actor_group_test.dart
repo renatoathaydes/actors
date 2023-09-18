@@ -37,7 +37,8 @@ void main() {
     late ActorGroup<int, int> actorGroup;
 
     setUp(() {
-      actorGroup = ActorGroup(Counter(), size: 3, strategy: const RoundRobin());
+      actorGroup =
+          ActorGroup.create(Counter.new, size: 3, strategy: const RoundRobin());
     });
 
     tearDown(() async {
@@ -91,7 +92,7 @@ void main() {
   group('ActorGroup errors', () {
     test('size must be > 0', () {
       expect(() {
-        ActorGroup<int, int>(Two(), size: 0);
+        ActorGroup<int, int>.create(Two.new, size: 0);
       }, throwsArgumentError);
       expect(() {
         ActorGroup<int, int>(Two(), size: -1);
@@ -102,7 +103,7 @@ void main() {
         'handlersPerMessage > actorsSize', () {
       // same 'minAnswers' as actorsSize is ok
       expect(
-          Future.value(ActorGroup<int, int>(Two(),
+          Future.value(ActorGroup<int, int>.create(Two.new,
               size: 3,
               strategy:
                   MultiHandler(minAnswers: 3, combineAnswers: (a) => a.first))),
@@ -118,7 +119,7 @@ void main() {
               equals('Cannot create HandlerFunction with '
                   'messengers.length < handlersPerMessage: (3 < 4)'))));
       expect(
-          () => ActorGroup<int, int>(Two(),
+          () => ActorGroup<int, int>.create(Two.new,
               size: 1,
               strategy:
                   MultiHandler(minAnswers: 4, combineAnswers: (a) => a.first)),

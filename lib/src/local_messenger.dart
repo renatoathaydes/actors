@@ -13,7 +13,7 @@ class LocalMessenger<M, A> with Messenger<M, A> {
   LocalMessenger(this._handler);
 
   /// Creates a [LocalMessenger] based on a handler function.
-  LocalMessenger.of(HandlerFunction<M, A> handler) : this(asHandler(handler));
+  LocalMessenger.of(HandlerFunction<M, A> handler) : this(asHandler(handler)());
 
   @override
   Future<A> send(M message) {

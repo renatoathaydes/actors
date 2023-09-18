@@ -1,12 +1,14 @@
 name: word_count
 description: Example of using actors to implement a word-count program.
 version: 1.0.0
+publish_to: none
 
 environment:
   sdk: '>=2.15.1 <3.0.0'
 
 dependencies:
   actors:
+    path: "../.."
 
 dev_dependencies:
   lints: ^1.0.0

@@ -10,7 +10,7 @@ import 'stub_actor.dart'
 
 class _BoostrapData<M, A> {
   final Sender sender;
-  final Handler<M, A> handler;
+  final Handler<M, A> Function() handler;
 
   const _BoostrapData(this.sender, this.handler);
 }
@@ -71,8 +71,9 @@ class _HandlerOfFunction<M, A> with Handler<M, A> {
 }
 
 /// Wrap a [HandlerFunction] into a [Handler] object.
-Handler<M, A> asHandler<M, A>(HandlerFunction<M, A> handlerFunction) =>
-    _HandlerOfFunction(handlerFunction);
+Handler<M, A> Function() asHandler<M, A>(
+        HandlerFunction<M, A> handlerFunction) =>
+    () => _HandlerOfFunction(handlerFunction);
 
 /// A [Messenger] can send a message and receive an answer asynchronously.
 mixin Messenger<M, A> {
@@ -94,17 +95,21 @@ mixin Messenger<M, A> {
 /// messages sent via the [Actor], communicating
 /// with the associated [Isolate] in a transparent manner.
 ///
-/// [Actor]s are mapped 1-1 to [Isolate]s, so
+/// [Actor]s are mapped 1-1 to [Isolate]s in the Dart VM, so
 /// the limitations of [Isolate]s also apply to [Actor]s:
 ///
 /// * messages sent to [Actor]s must be copied into the [Isolate] the [Actor]
-///   is running on.
+///   is running on unless the DartVM can infer the message is immutable.
 /// * not all Dart objects can be sent to an Actor, see the limitations in
 /// [SendPort.send](https://api.dart.dev/stable/dart-isolate/SendPort/send.html)
 /// for details.
 ///
 /// Notice that an [Actor] cannot return a [Stream] of any kind, only a single
 /// [FutureOr] of type [A]. To return a [Stream], use [StreamActor] instead.
+///
+/// On the web, Actors do not have an isolated environment. For this reason,
+/// Actors that rely on mutable global variables being "isolated" to themselves
+/// are not fully portable.
 class Actor<M, A> with Messenger<M, A> {
   late final ActorImpl _actorImpl;
   late final Stream<Message> _answerStream;
@@ -114,22 +119,31 @@ class Actor<M, A> with Messenger<M, A> {
 
   /// Creates an [Actor] that handles messages with the given [Handler].
   ///
+  /// Prefer to use the [Actor.create] constructor to avoid instantiating the
+  /// [Handler] locally, unnecessarily.
+  ///
   /// Use the [of] constructor to wrap a function directly.
-  Actor(Handler<M, A> handler) {
+  Actor(Handler<M, A> handler) : this.create(() => handler);
+
+  /// Creates an [Actor] that handles messages with the [Handler] returned
+  /// by the [createHandler] function.
+  ///
+  /// Use the [of] constructor to wrap a function directly.
+  Actor.create(Handler<M, A> Function() createHandler) {
     _validateGenericType();
 
     final id = _currentId++;
     _actorImpl = ActorImpl.create();
 
     _actorImpl.spawn(
-        _remote, Message(id, _BoostrapData(_actorImpl.sender, handler)));
+        _remote, Message(id, _BoostrapData(_actorImpl.sender, createHandler)));
 
     _answerStream = _actorImpl.answerStream;
     _sender = _waitForRemotePort(id);
   }
 
   /// Creates an [Actor] based on a handler function.
-  Actor.of(HandlerFunction<M, A> handler) : this(asHandler(handler));
+  Actor.of(HandlerFunction<M, A> handler) : this.create(asHandler(handler));
 
   /// A handle to this [Actor] which can be sent to other actors.
   ///
@@ -197,12 +211,22 @@ class Actor<M, A> with Messenger<M, A> {
 class StreamActor<M, A> extends Actor<M, Stream<A>> {
   /// Creates a [StreamActor] that handles messages with the given [Handler].
   ///
+  /// Prefer to use the [StreamActor.create] constructor to avoid instantiating the
+  /// [Handler] locally, unnecessarily.
+  ///
   /// Use the [of] constructor to wrap a function directly.
   StreamActor(Handler<M, Stream<A>> handler) : super(handler);
 
+  /// Creates a [StreamActor] that handles messages with the [Handler]
+  /// returned by [createHandler].
+  ///
+  /// Use the [of] constructor to wrap a function directly.
+  StreamActor.create(Handler<M, Stream<A>> Function() createHandler)
+      : super.create(createHandler);
+
   /// Creates a [StreamActor] based on a handler function.
   StreamActor.of(HandlerFunction<M, Stream<A>> handler)
-      : this(asHandler(handler));
+      : this.create(asHandler(handler));
 
   /// Send a message to the [Handler] this [StreamActor] is based on.
   ///
@@ -248,7 +272,7 @@ class _RemoteState {
   final receiver = Receiver.create();
 
   _RemoteState(_BoostrapData data)
-      : remoteHandler = data.handler,
+      : remoteHandler = data.handler(),
         sender = data.sender;
 
   void receive(AnyMessage msg) async {

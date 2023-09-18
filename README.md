@@ -23,7 +23,7 @@ class Accumulator with Handler<int, int> {
 }
 
 main() async {
-  final actor = Actor(Accumulator(6));
+  final actor = Actor.create(() => Accumulator(6));
   print(await actor.send(5)); // 11
   await actor.close();
 }
@@ -56,7 +56,7 @@ class StreamGenerator with Handler<int, Stream<int>> {
 
 main() async {
   // Create an StreamActor from a Handler that returns Stream.
-  final actor = StreamActor(StreamGenerator());
+  final actor = StreamActor.create(StreamGenerator.new);
   final stream = actor.send(2);
   await for (final item in stream) {
     print(item); // 0, 1
@@ -67,18 +67,17 @@ main() async {
 
 ### Actor state
 
-An actor can safely maintain internal state which cannot be reached by any other actors (as it resides in its own Dart Isolate).
-The state can include anything, even `Stream`s and open sockets, for example.
+An actor can safely maintain internal state which cannot be reached by any other actors (as it resides in its own Dart
+Isolate
+in the DartVM - please notice that this does not hold on the web).
 
-However, the actor must not **initialize** anything that cannot be **sent** in a message in its constructor.
+The actor's state can include anything, even `Stream`s and open sockets, for example, except if the `Handler` is
+instantiated locally by using the `Actor(Handler handler)` constructor. For this reason, prefer to use either the
+`Actor.of` constructors to _wrap_ functions, or the `Actor.create(Handler Function())` constructor that ensures the
+`Handler` is not instantiated locally.
 
-> That's because, due to limitations of the Dart programming language, an actor gets created both in the local Isolate
-(which is not wanted, but unavoidable) and in its own Isolate (i.e. the _actual actor_). If the actor initialized
-> something that cannot be _sent_ in its constructor, the initial message sent to its Isolate would fail to be sent
-> because the Actor's `Handler` itself is part of that.
-
-For this reason, it's advisable to initialize the state of an actor in the `Handler`'s `init` method, which has the
-advantage of allowing async calls to be used.
+Initial state that requires asynchronous calls can be initialized in the `Handler`'s `init` method. `actors` guarantees
+that an `Actor` will never be called to handle a message before its `init` method has successfully returned.
 
 For example, an Actor which wraps a `HttpServer` could be initialized as shown below:
 
@@ -104,33 +103,6 @@ class HttpServerActor with Handler<Message, Answer> {
 ```
 
 You can see the full example code at [example/stateful_actor_example.dart](example/stateful_actor_example.dart).
-
-If you attempted to initialize the non-sendable field, `_server`, in the constructor, like this:
-
-```dart
-class HttpServerActor with Handler<Message, Answer> {
-  // this won't work unless the Future is only initialized in the Actor's Isolate,
-  // because Future is not Sendable!!
-  final Future<HttpServer> _server;
-  final int port;
-
-  HttpServerActor(this.port)
-      : _server = HttpServer.bind(InternetAddress.loopbackIPv4, port);
-
-  // ...
-}
-```
-
-You would get an error like the following as you tried to create the _local version_ of `HttpServerActor`:
-
-```
-Invalid argument(s): Illegal argument in isolate message: object is unsendable - 
-  Library:'dart:async' Class: _Future@4048458 (see restrictions listed at `SendPort.send()` documentation for more information)
-    <- Instance of 'HttpServerActor' (from file:///programming/projects/actors/example/stateful_actor_example.dart)
-```
-
-This can be hard to understand if you're not aware of how this all works, but hopefully now that you've seen it, if it
-ever happens to you, you'll be able to fix it without too much stress!
 
 ### Sending an Actor to another Actor
 

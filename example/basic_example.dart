@@ -35,7 +35,7 @@ void main() async {
 
 Future<Actor> statefulActorExample() async {
   // create an Actor from a Handler
-  final actor = Actor(Accumulator(6));
+  final actor = Actor.create(() => Accumulator(6));
 
   // send messages to the actor
   actor.send(26);
