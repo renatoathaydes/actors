@@ -86,15 +86,15 @@ class HttpServerActor with Handler<Message, Answer> {
   late final HttpServer _server;
   final int port;
 
-  // notice that only "sendable" state can be initialized or provided
-  // in the constructor.
   HttpServerActor(this.port);
 
   // this method will only run in the Actor's own Isolate, so we can
   // create non-sendable state.
   @override
   Future<void> init() async {
-    _server = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
+    // binding a server with "shared: true" means that requests will be handled
+    // by multiple Isolates if HttpServerActor is started on many Isolates (see ActorGroup). 
+    _server = await HttpServer.bind(InternetAddress.loopbackIPv4, port, shared: true);
     unawaited(_serveRequests());
   }
   

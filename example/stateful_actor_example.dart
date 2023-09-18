@@ -7,8 +7,8 @@ import 'package:test/scaffolding.dart';
 
 /// This [Handler] starts a HTTP Server that can be used for testing that a
 /// HTTP client is sending HTTP headers correctly.
-/// It initializes the server on the [init] method to avoid errors related
-/// to trying to _send_ the HttpServer in the actor initial message.
+/// It initializes the server on the [init] method so it can call and await
+/// async functions.
 class HttpServerActor with Handler<void, HttpHeaders?> {
   late final HttpServer _server;
   final int port;
@@ -17,15 +17,16 @@ class HttpServerActor with Handler<void, HttpHeaders?> {
   // back to the client on request.
   final List<HttpHeaders> _receivedHeaders = [];
 
-  // notice that only "sendable" state can be initialized or provided
-  // in the constructor.
   HttpServerActor(this.port);
 
   // this method will only run in the Actor's own Isolate, so we can
   // create non-sendable state.
   @override
   Future<void> init() async {
-    _server = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
+    _server =
+        // binding a server with "shared: true" means that requests will be handled
+        // by multiple Isolates if HttpServerActor is started on many Isolates (see ActorGroup).
+        await HttpServer.bind(InternetAddress.loopbackIPv4, port, shared: true);
     unawaited(_serveRequests());
   }
 
@@ -49,13 +50,23 @@ class HttpServerActor with Handler<void, HttpHeaders?> {
 
 /// This test is executed as part of this package's standard tests.
 void main() {
-  Actor<void, HttpHeaders?>? httpActor;
+  ActorGroup<void, HttpHeaders?>? httpActor;
 
   tearDown(() => httpActor?.close());
 
   test('can start an actor which maintains non-sendable state', () async {
     const port = 8081;
-    httpActor = Actor.create(() => HttpServerActor(port));
+    final groupSize = Platform.numberOfProcessors;
+    httpActor = ActorGroup.create(() => HttpServerActor(port),
+        size: groupSize,
+        // using this strategy, all actors will receive every message we send
+        strategy: MultiHandler(
+            minAnswers: groupSize,
+            combineAnswers: (answers) {
+              return answers
+                  .where((h) => h?['Custom-Header'] != null)
+                  .firstOrNull;
+            }));
 
     // send a request with some header
     final client = HttpClient();
