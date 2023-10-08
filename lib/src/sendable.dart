@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'answer_handler.dart';
 import 'message.dart';
 import 'stub_actor.dart'
@@ -25,6 +27,6 @@ class SendableImpl<M, A> with Sendable<M, A> {
     final receiver = Receiver.create();
     final answer = receiver.first;
     _sender.send(OneOffMessage(receiver.sender, message));
-    return handleAnswer(answer.then((m) => m as Message));
+    return handleAnswer(answer.then((m) => m as Message), Completer<A>());
   }
 }

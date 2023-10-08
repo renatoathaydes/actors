@@ -12,8 +12,8 @@ class MessengerStreamBroken implements Exception {
 }
 
 /// This is an internal function.
-Future<A> handleAnswer<A>(Future<Message> futureAnswer) {
-  final completer = Completer<A>();
+Future<A> handleAnswer<A>(
+    Future<Message> futureAnswer, Completer<A> completer) {
   futureAnswer.then((Message answer) {
     if (answer.isError) {
       // if the answer is an error, its content will never be null

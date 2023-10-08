@@ -34,6 +34,19 @@ class RemoteErrorException implements Exception {
   String toString() => 'RemoteErrorException{$errorAsString}';
 }
 
+/// An [Exception] that is thrown by an [Actor] if it fails to initialize.
+///
+/// Whenever the Actor's [Actor.send()] method is called, it may result in
+/// this Exception because there's no way to wait for successful initialization
+/// directly. However, if at least one successful message is received, then
+/// it is guaranteed that this Exception will never be thrown by `actors`.
+final class ActorInitializationException implements Exception {
+  final Object cause;
+  final StackTrace stackTrace;
+
+  const ActorInitializationException(this.cause, this.stackTrace);
+}
+
 typedef HandlerFunction<M, A> = FutureOr<A> Function(M message);
 
 /// A [Handler] implements the logic to handle messages.
@@ -159,9 +172,13 @@ class Actor<M, A> with Messenger<M, A> {
   }
 
   Future<Sender> _waitForRemotePort(num id) {
-    return _answerStream
-        .firstWhere((answer) => (answer.id == id))
-        .then((msg) => msg.content as Sender);
+    return _answerStream.firstWhere((answer) => (answer.id == id)).then((msg) {
+      if (msg.isError) {
+        _actorImpl.close();
+        throw ActorInitializationException(msg.content!, msg.stacktrace!);
+      }
+      return msg.content as Sender;
+    });
   }
 
   /// Send a message to the [Handler] this [Actor] is based on.
@@ -175,9 +192,11 @@ class Actor<M, A> with Messenger<M, A> {
   @override
   FutureOr<A> send(M message) {
     final id = _currentId++;
+    final completer = Completer<A>();
     final futureAnswer = _answerStream.firstWhere((m) => m.id == id);
-    _sender.then((s) => s.send(Message(id, message)));
-    return handleAnswer(futureAnswer);
+    _sender.then((s) => s.send(Message(id, message)),
+        onError: completer.completeError);
+    return handleAnswer(futureAnswer, completer);
   }
 
   /// Close this [Actor].
@@ -306,8 +325,12 @@ class _RemoteState {
 
 void _remote(Message msg) async {
   final remoteState = _RemoteState(msg.content as _BoostrapData);
-  // TODO try and send error if necessary
-  await remoteState.remoteHandler.init();
+  try {
+    await remoteState.remoteHandler.init();
+  } catch (e, st) {
+    return remoteState.sender.send(Message(msg.id, _safeToSendException(e),
+        stackTraceString: st.toString()));
+  }
   remoteState.receiver.listen(remoteState.receive);
   remoteState.sender.send(Message(msg.id, remoteState.receiver.sender));
 }
@@ -327,10 +350,17 @@ void _sendAnswer(Sender sender, num id, Object? result, StackTrace? trace,
       trace = st;
     }
   }
-  if (isError && result is Error) {
-    // Error has a stacktrace which we cannot send back, so turn the error
-    // into an String representation of it so we can send it
-    result = RemoteErrorException('$result');
+  if (isError) {
+    result = _safeToSendException(result);
   }
   sender.send(Message(id, result, stackTraceString: trace?.toString()));
+}
+
+Object? _safeToSendException(Object? exception) {
+  if (exception is Error) {
+    // Error has a stacktrace which we cannot send back, so turn the error
+    // into an String representation of it so we can send it
+    return RemoteErrorException('$exception');
+  }
+  return exception;
 }

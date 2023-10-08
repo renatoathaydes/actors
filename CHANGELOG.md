@@ -1,5 +1,8 @@
 ## Next Release
 
+- fixed handling of initialization errors. Introduced `ActorInitializationException` to represent such cases.
+- improved initialization performance.
+
 ## 0.10.0
 
 - added `toSendable` to `Actor` so that the Actor can be sent to another Actor via its `Sendable` object.

@@ -218,8 +218,8 @@ class ActorGroup<M, A> with Messenger<M, A> {
       {int size = 6, GroupStrategy<M, A>? strategy})
       : this.create(asHandler(handlerFunction), size: size, strategy: strategy);
 
-  static List<Messenger<M, A>> _buildActors<M, A>(int size,
-      Handler<M, A> Function() createHandler) {
+  static List<Messenger<M, A>> _buildActors<M, A>(
+      int size, Handler<M, A> Function() createHandler) {
     if (size < 1) {
       throw ArgumentError.value(size, 'size', 'must be a positive number');
     }
