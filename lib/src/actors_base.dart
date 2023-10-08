@@ -242,7 +242,7 @@ class StreamActor<M, A> extends Actor<M, Stream<A>> {
     final controller = StreamController<A>();
     _answerStream
         .where((m) => m.id == id)
-        .takeWhile((m) => m.content != #actors_stream_done)
+        .takeWhile((m) => m.content != #_actors_stream_done)
         .listen((answer) {
       final content = answer.content;
       if (answer.isError) {
@@ -304,8 +304,7 @@ class _RemoteState {
   }
 }
 
-void _remote(AnyMessage msg) async {
-  msg as Message;
+void _remote(Message msg) async {
   final remoteState = _RemoteState(msg.content as _BoostrapData);
   // TODO try and send error if necessary
   await remoteState.remoteHandler.init();
@@ -321,7 +320,7 @@ void _sendAnswer(Sender sender, num id, Object? result, StackTrace? trace,
         sender.send(Message(id, item));
       }
       // actor doesn't know we're done if we don't tell it explicitly
-      result = #actors_stream_done;
+      result = #_actors_stream_done;
     } catch (e, st) {
       result = e;
       isError = true;
