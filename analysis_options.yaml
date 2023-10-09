@@ -1,2 +1,6 @@
 # see https://pub.dev/packages/lints
 include: package:lints/recommended.yaml
+linter:
+  rules:
+    - unawaited_futures
+    - always_declare_return_types
