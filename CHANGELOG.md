@@ -1,7 +1,9 @@
 ## Next Release
 
+## 0.11.0
+
 - fixed handling of initialization errors. Introduced `ActorInitializationException` to represent such cases.
-- improved initialization performance.
+- improved Actor initialization performance.
 
 ## 0.10.0
 
