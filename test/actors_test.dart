@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:actors/actors.dart';
+import 'package:conveniently/conveniently.dart';
 import 'package:path/path.dart' as paths;
 import 'package:test/test.dart';
 
@@ -123,6 +124,17 @@ class ErrorMethods with Handler<String, Never> {
   Never _error() {
     throw ArgumentError.value('value is always wrong', 'none');
   }
+}
+
+class BadInitHandler with Handler<void, void> {
+  @override
+  FutureOr<void> init() async {
+    await Future.delayed(const Duration(milliseconds: 10));
+    throw FormatException('cannot initialize');
+  }
+
+  @override
+  void handle(void message) {}
 }
 
 class AddSenderFunction {
@@ -252,7 +264,7 @@ void main() {
     });
     test('Errors are propagated to caller', () async {
       await expectToThrow(
-        () async => await actor.send('error'),
+        () => actor.send('error'),
         matchException: isA<RemoteErrorException>().having(
             (e) => e.errorAsString,
             'errorAsString',
@@ -261,6 +273,17 @@ void main() {
           RegExp('.*ErrorMethods._error.*'),
         ]),
       );
+    });
+    test(
+        'Errors during init cause all Actor actions to throw ActorInitializationException',
+        () async {
+      final badActor = Actor.create(BadInitHandler.new);
+      // try twice to ensure that every call to send fails, not just the first
+      await 2.times(() async {
+        await expectToThrow(() => badActor.send(null),
+            matchException: isA<ActorInitializationException>()
+                .having((e) => e.cause, 'cause', isA<FormatException>()));
+      });
     });
   });
 
@@ -272,8 +295,11 @@ void main() {
     test('should throw on call site', () async {
       final response = actor.send(500);
       await Future.delayed(Duration(milliseconds: 250));
-      await actor.close();
-      expect(() async => await response, throwsA(isMessengerStreamBroken));
+
+      // avoids causing errors due to unhandled Future errors
+      // (will await Future later)
+      runZonedGuarded(actor.close, (error, stack) {});
+      expect(() => response, throwsA(isMessengerStreamBroken));
     });
   });
 

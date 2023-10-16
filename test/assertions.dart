@@ -44,7 +44,7 @@ Future expectToThrow(FutureOr Function() action,
     throw AssertionError('Expected action to throw, but it returned normally');
   } catch (e, t) {
     expect(e, matchException);
-    expect(t.toString(), matchTrace);
+    if (matchTrace != null) expect(t.toString(), matchTrace);
   }
   return null;
 }

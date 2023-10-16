@@ -171,14 +171,14 @@ class Actor<M, A> with Messenger<M, A> {
     }
   }
 
-  Future<Sender> _waitForRemotePort(num id) {
-    return _answerStream.firstWhere((answer) => (answer.id == id)).then((msg) {
-      if (msg.isError) {
-        _actorImpl.close();
-        throw ActorInitializationException(msg.content!, msg.stacktrace!);
-      }
-      return msg.content as Sender;
-    });
+  Future<Sender> _waitForRemotePort(num id) async {
+    final msg = await _answerStream.firstWhere((answer) => (answer.id == id),
+        orElse: () => throw const MessengerStreamBroken());
+    if (msg.isError) {
+      unawaited(_actorImpl.close());
+      throw ActorInitializationException(msg.content!, msg.stacktrace!);
+    }
+    return msg.content as Sender;
   }
 
   /// Send a message to the [Handler] this [Actor] is based on.
@@ -192,11 +192,14 @@ class Actor<M, A> with Messenger<M, A> {
   @override
   FutureOr<A> send(M message) {
     final id = _currentId++;
-    final completer = Completer<A>();
-    final futureAnswer = _answerStream.firstWhere((m) => m.id == id);
-    _sender.then((s) => s.send(Message(id, message)),
-        onError: completer.completeError);
-    return handleAnswer(futureAnswer, completer);
+    final futureAnswer = _answerStream.firstWhere((m) => m.id == id,
+        // will not await for answer unless init() succeeded, so delay throw
+        orElse: () =>
+            Message(0, const MessengerStreamBroken(), stackTraceString: ''));
+    final sendFuture = _sender.then((s) => s.send(Message(id, message)),
+        // force sendFuture to only fail asynchronously
+        onError: (e) async => throw e);
+    return handleAnswer(sendFuture, futureAnswer);
   }
 
   /// Close this [Actor].
@@ -213,8 +216,9 @@ class Actor<M, A> with Messenger<M, A> {
   FutureOr<void> close() async {
     if (_isClosed) return;
     _isClosed = true;
-    final ack =
-        _answerStream.firstWhere((msg) => msg.content == #actor_terminated);
+    final ack = _answerStream.firstWhere(
+        (msg) => msg.content == #actor_terminated,
+        orElse: () => const Message(0, null));
     (await _sender).send(TerminateActor.singleton);
     await ack;
     await _actorImpl.close();

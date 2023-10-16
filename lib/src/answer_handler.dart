@@ -13,17 +13,20 @@ class MessengerStreamBroken implements Exception {
 
 /// This is an internal function.
 Future<A> handleAnswer<A>(
-    Future<Message> futureAnswer, Completer<A> completer) {
-  futureAnswer.then((Message answer) {
-    if (answer.isError) {
-      // if the answer is an error, its content will never be null
-      completer.completeError(answer.content!, answer.stacktrace);
-    } else {
-      completer.complete(answer.content as A);
+    Future<void> senderFuture, Future<Message> futureAnswer) async {
+  try {
+    await senderFuture;
+  } catch (e) {
+    // when the sender fails, suppress the answer Future's expected failure
+    await futureAnswer.then((value) => null, onError: (_) => null);
+    rethrow;
+  }
+  final answer = await futureAnswer;
+  if (answer.isError) {
+    if (answer.content == const MessengerStreamBroken()) {
+      throw const MessengerStreamBroken();
     }
-  }, onError: (e, StackTrace stackTrace) {
-    // the only way to get an error here is for the future to be killed
-    completer.completeError(const MessengerStreamBroken(), stackTrace);
-  });
-  return completer.future;
+    Error.throwWithStackTrace(answer.content!, answer.stacktrace!);
+  }
+  return answer.content as A;
 }

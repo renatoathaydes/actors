@@ -16,6 +16,8 @@ mixin Sendable<M, A> {
   Future<A> send(M message);
 }
 
+final _nullFuture = Future.value(null);
+
 /// Internal implementation of [Sendable].
 class SendableImpl<M, A> with Sendable<M, A> {
   final Sender _sender;
@@ -27,6 +29,6 @@ class SendableImpl<M, A> with Sendable<M, A> {
     final receiver = Receiver.create();
     final answer = receiver.first;
     _sender.send(OneOffMessage(receiver.sender, message));
-    return handleAnswer(answer.then((m) => m as Message), Completer<A>());
+    return handleAnswer(_nullFuture, answer.then((m) => m as Message));
   }
 }
